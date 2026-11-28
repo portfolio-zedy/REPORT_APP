@@ -1713,7 +1713,7 @@ function foot(iso, kind) {
 function wrap(kind, orient, iso, title, sub, inner) {
   return '<section class="rp ' + kind + (orient === 'landscape' ? ' landscape' : '') + '" data-orient="' + orient + '">' + head(title, sub, iso, kind) + '<div class="rp-body">' + inner + '</div>' + foot(iso, kind) + '</section>';
 }
-function kpi(v, l, cls) { return '<div class="rp-kpi ' + (cls || '') + '"><div class="v">' + v + '</div><div class="l">' + esc(l) + '</div></div>'; }
+function rkpi(v, l, cls) { return '<div class="rp-kpi ' + (cls || '') + '"><div class="v">' + v + '</div><div class="l">' + esc(l) + '</div></div>'; }
 function sec(title, small, count) { return '<h2 class="rp-sec">' + esc(title) + (small ? ' <small>' + esc(small) + '</small>' : '') + (count !== undefined ? '<span class="count">' + count + '</span>' : '') + '</h2>'; }
 function table(cols, rows, totalRow) {
   return '<table class="rp-t"><thead><tr>' + cols.map(c => '<th class="' + (c.cls || '') + '"' + (c.w ? ' style="width:' + c.w + '"' : '') + '>' + c.h + '</th>').join('') + '</tr></thead><tbody>' +
@@ -1757,8 +1757,8 @@ const tribeWho = r => (r.chief || '') + (assocName(r) ? ' & ASSOCIATE ' + assocN
 /* ------------------------------------------------------------------ TRIBE */
 function reportTribe(D) {
   const rows = D.tribes.slice().sort(rankOv), g = splitOv(rows), t = sum(rows, 't');
-  const inner = '<div class="rp-kpis">' + kpi(fmt(rows.length), 'Tribes reporting') + kpi(fmt(t), 'Kinsmen in tribes today') + kpi(fmt(sum(rows, 'avg'), 1), 'Combined cumulative average') +
-    kpi(fmt(g.gain.length), 'Above baseline', 'gain') + kpi(fmt(g.flat.length), 'On baseline') + kpi(fmt(g.loss.length), 'Below baseline', 'loss') + '</div>' +
+  const inner = '<div class="rp-kpis">' + rkpi(fmt(rows.length), 'Tribes reporting') + rkpi(fmt(t), 'Kinsmen in tribes today') + rkpi(fmt(sum(rows, 'avg'), 1), 'Combined cumulative average') +
+    rkpi(fmt(g.gain.length), 'Above baseline', 'gain') + rkpi(fmt(g.flat.length), 'On baseline') + rkpi(fmt(g.loss.length), 'Below baseline', 'loss') + '</div>' +
     sec('Best performing', 'cumulative average above baseline', g.gain.length) + ovTable(g.gain, 'Tribe', 'Chief & associate', r => r.label, tribeWho) +
     sec('Average performing', 'cumulative average equal to baseline', g.flat.length) + ovTable(g.flat, 'Tribe', 'Chief & associate', r => r.label, tribeWho) +
     sec('Least performing', 'cumulative average below baseline', g.loss.length) + ovTable(g.loss, 'Tribe', 'Chief & associate', r => r.label, tribeWho) +
@@ -1769,8 +1769,8 @@ function reportTribe(D) {
 /* ------------------------------------------------------------------ HUB */
 function reportHub(D) {
   const rows = D.hubs.slice().sort(rankOv), t = sum(rows, 't'), g = splitOv(rows), above = rows.filter(h => h.t >= HUB_TARGET).length;
-  const inner = '<div class="rp-kpis">' + kpi(fmt(rows.length), 'Hubs reporting') + kpi(fmt(t), 'Kinsmen in hubs today') + kpi(fmt(sum(rows, 'avg'), 1), 'Combined cumulative average') +
-    kpi(fmt(g.gain.length) + ' / ' + fmt(g.loss.length), 'Hubs above / below baseline') + kpi(fmt(above) + ' of ' + fmt(rows.length), 'Hubs at ' + HUB_TARGET + '+ kinsmen today') + '</div>' +
+  const inner = '<div class="rp-kpis">' + rkpi(fmt(rows.length), 'Hubs reporting') + rkpi(fmt(t), 'Kinsmen in hubs today') + rkpi(fmt(sum(rows, 'avg'), 1), 'Combined cumulative average') +
+    rkpi(fmt(g.gain.length) + ' / ' + fmt(g.loss.length), 'Hubs above / below baseline') + rkpi(fmt(above) + ' of ' + fmt(rows.length), 'Hubs at ' + HUB_TARGET + '+ kinsmen today') + '</div>' +
     sec('All hubs', 'ranked by cumulative average minus baseline, highest to lowest', rows.length) + ovTable(rows, 'Hub', 'Veteran', r => r.label, r => r.veteran);
   return wrap('hub', 'portrait', D.iso, 'Daily Hub Report', 'Cumulative average vs baseline · hub by hub', inner);
 }
@@ -1778,8 +1778,8 @@ function reportHub(D) {
 /* ------------------------------------------------------------------ DISTRICT */
 function reportDistrict(D) {
   const t = sum(D.districts, 't'), y = sum(D.districts, 'y'), g = splitGroups(D.districts);
-  const inner = '<div class="rp-kpis">' + kpi(fmt(D.districts.length), 'Districts listed') + kpi(fmt(t), 'Kinsmen placed in a district') + kpi(sgn(t - y), 'Change vs yesterday', t - y >= 0 ? 'gain' : 'loss') +
-    kpi(fmt(g.gain.length) + ' / ' + fmt(g.loss.length), 'Districts up / down') + '</div>' +
+  const inner = '<div class="rp-kpis">' + rkpi(fmt(D.districts.length), 'Districts listed') + rkpi(fmt(t), 'Kinsmen placed in a district') + rkpi(sgn(t - y), 'Change vs yesterday', t - y >= 0 ? 'gain' : 'loss') +
+    rkpi(fmt(g.gain.length) + ' / ' + fmt(g.loss.length), 'Districts up / down') + '</div>' +
     sec('All districts', 'ranked by change since yesterday', D.districts.length) + ystTable(D.districts, 'District', 'Mayor', r => r.label, r => r.mayor || '—') +
     (D.notIn.has ? '<div class="rp-note"><b>Not in the district database: ' + fmt(D.notIn.t) + '</b> (yesterday ' + fmt(D.notIn.y) + '). These kinsmen attended Bethel but could not be matched to a registered member, so they are not counted under any district above.</div>' : '');
   return wrap('district', 'portrait', D.iso, 'Daily District Report', 'Bethel attendance · by state and country', inner);
@@ -1789,7 +1789,7 @@ function reportDistrict(D) {
 function reportColony(D) {
   const cols = D.colonies.filter(c => c.has).sort(rankOv), m = ovMax(cols);
   const tb = sum(cols, 'baseline'), tc = sum(cols, 'cum'), to = tc - tb;
-  const inner = '<div class="rp-kpis">' + kpi(fmt(D.total.t), 'Colony attendance today') + kpi(fmt(tc, 1), 'Cumulative average (all colonies)') + kpi(fmt(tb, 1), 'Combined baseline') + kpi(sgn(r2(to), 1), 'Cumulative − baseline', to >= 0 ? 'gain' : 'loss') + '</div>' +
+  const inner = '<div class="rp-kpis">' + rkpi(fmt(D.total.t), 'Colony attendance today') + rkpi(fmt(tc, 1), 'Cumulative average (all colonies)') + rkpi(fmt(tb, 1), 'Combined baseline') + rkpi(sgn(r2(to), 1), 'Cumulative − baseline', to >= 0 ? 'gain' : 'loss') + '</div>' +
     sec('Colony attendance', 'ranked by cumulative average minus baseline, highest to lowest', cols.length) +
     table([{ h: '#', cls: 'c', td: 'rank', w: '22px' }, { h: 'Colony', td: 'name' }, { h: 'Regent &amp; associate', td: 'sub' }, { h: 'Baseline', cls: 'c', td: 'num', w: '58px' }, { h: 'Cumulative avg', cls: 'c', td: 'num', w: '66px' }, { h: 'Today', cls: 'c', td: 'num', w: '52px' }, { h: 'Cumulative − baseline', cls: 'c', td: 'scorecell', w: '140px' }],
       cols.map((c, i) => [i + 1, esc(c.name), esc(c.regent), fmt(c.baseline, 2), fmt(c.cum, 2), '<b>' + fmt(c.t) + '</b>', sbar(r2(c.overall), m)]),
@@ -1898,8 +1898,8 @@ function reportBrief(D) {
     (D.hasYesterday ? ', <b>' + (diff >= 0 ? 'up ' : 'down ') + fmt(Math.abs(diff)) + '</b> (' + (pct >= 0 ? '+' : '−') + fmt(Math.abs(pct), 1) + '%) on yesterday' : '') +
     '. <b>' + onBase + ' of ' + cols.length + '</b> colonies are at or above their baseline, and <b>' + hubAbove + ' of ' + D.hubs.length + '</b> hubs reached ' + HUB_TARGET + '+ kinsmen.</div>';
   const inner = headline +
-    '<div class="rp-kpis">' + kpi(fmt(D.total.t), 'Attendance today') + kpi(D.hasYesterday ? sgn(diff) : '–', 'Change vs yesterday', diff >= 0 ? 'gain' : 'loss') + kpi(sgn(D.total.t - D.total.base, 0), 'Against combined baseline', D.total.t >= D.total.base ? 'gain' : 'loss') +
-    kpi(onBase + ' / ' + cols.length, 'Colonies at baseline') + kpi(hubAbove + ' / ' + D.hubs.length, 'Hubs at ' + HUB_TARGET + '+') + '</div>' +
+    '<div class="rp-kpis">' + rkpi(fmt(D.total.t), 'Attendance today') + rkpi(D.hasYesterday ? sgn(diff) : '–', 'Change vs yesterday', diff >= 0 ? 'gain' : 'loss') + rkpi(sgn(D.total.t - D.total.base, 0), 'Against combined baseline', D.total.t >= D.total.base ? 'gain' : 'loss') +
+    rkpi(onBase + ' / ' + cols.length, 'Colonies at baseline') + rkpi(hubAbove + ' / ' + D.hubs.length, 'Hubs at ' + HUB_TARGET + '+') + '</div>' +
     '<div class="rp-cols"><div class="rp-chart"><h3>Colonies · today (bar) vs baseline (line)</h3>' + svgColonyBars(cols) + '</div><div class="rp-chart"><h3>Daily attendance this month</h3>' + svgTrend(D.trend) + '</div></div>' +
     sec('Movers', 'biggest changes since yesterday') +
     '<div class="rp-cols"><div class="rp-box up"><h3>▲ Tribes up</h3>' + moverList(up(D.tribes), r => r.label, r => r.chief.replace(/^CHIEF /, '') + (assocName(r) ? ' & ' + assocName(r) : '')) + '</div><div class="rp-box down"><h3>▼ Tribes down</h3>' + moverList(down(D.tribes), r => r.label, r => r.chief.replace(/^CHIEF /, '') + (assocName(r) ? ' & ' + assocName(r) : '')) + '</div></div>' +
@@ -4188,31 +4188,35 @@ function renderDashboard() {
     box.innerHTML = '<div class="card">' + (S.bookErr ? '<div class="banner bad"><span class="ic">✖</span><div><b>Workbook not reachable.</b> ' + esc(S.bookErr) + '</div></div><div class="row"><button class="btn" data-go="settings">Open Settings</button><button class="btn ghost" id="dashRetry">Try again</button></div>' : '<span class="spin"></span> Connecting to the workbook…<div class="hint" style="margin-top:8px">No workbook yet? Add its link and passcode in Settings.</div><div class="row" style="margin-top:10px"><button class="btn ghost" data-go="settings">Open Settings</button></div>') + '</div>';
     wireDash(box); return;
   }
-  const tot = i => b.tribes.reduce((a, t) => a + (t.vals[i] || 0), 0);
-  const base = b.tribes.reduce((a, t) => a + (t.baseline || 0), 0);
   if (!rec.length) { box.innerHTML = '<div class="card"><div class="empty"><b>No attendance recorded yet</b>' + (isAdminRole() ? 'Numbers will show here once the central admin processes the first day.' : 'Process a Zoom file to see the month take shape here.') + '</div></div>'; wireDash(box); return; }
-  const li = rec[rec.length - 1], pi = rec.length > 1 ? rec[rec.length - 2] : -1, totals = rec.map(tot), lastT = tot(li), prevT = pi >= 0 ? tot(pi) : null;
-  const delta = prevT ? (lastT - prevT) / prevT * 100 : 0, avg = totals.reduce((a, x) => a + x, 0) / totals.length, vs = base ? avg / base * 100 : 0;
-  const rep = b.tribes.filter(t => (t.vals[li] || 0) > 0).length, below = b.tribes.filter(t => (t.vals[li] || 0) < (t.baseline || 0)).length;
+  const li = rec[rec.length - 1], D = computeDay(b, b.dates[li]);     // the same numbers as the exported reports
+  const trend = D.trend, totals = trend.map(x => x.total), lastT = D.total.t;
+  const prevT = trend.length > 1 ? trend[trend.length - 2].total : null, prevDay = trend.length > 1 ? trend[trend.length - 2].iso : '';
+  const base = D.total.base, avg = D.total.cum, vs = base ? avg / base * 100 : 0, delta = prevT ? (lastT - prevT) / prevT * 100 : 0;
+  const rep = b.tribes.filter(t => (t.vals[li] || 0) > 0).length, below = D.tribes.filter(t => r2(t.overall) < 0).length;
   const pend = pendingReqs(), admin = isAdminRole(), need = pend.length + (admin ? 0 : pendingAccts().length);
   const cards = [
     kpi({ label: 'Days recorded', icon: 'days', val: rec.length, thumb: kpiTimeline(b.dates.length, rec), foot: 'of ' + b.dates.length + ' days', pill: '<span class="pill">Latest ' + esc(shortDate(b.dates[li])) + '</span>' }),
-    kpi({ label: 'Latest day', icon: 'people', tone: 'g', val: fmt(lastT), thumb: kpiSpark(totals), foot: prevT ? 'vs ' + esc(shortDate(b.dates[pi])) : 'first day', pill: prevT ? pillOf(delta) : '' }),
-    kpi({ label: 'Against baseline', icon: 'gauge', tone: 'a', val: fmt(vs, 1) + '%', thumb: kpiGauge(vs), foot: 'avg ' + fmt(avg, 0) + ' / day', pill: '<span class="pill ' + (vs >= 100 ? 'up' : 'warn') + '">Base ' + fmt(base, 0) + '</span>' }),
-    kpi({ label: 'Tribes reporting', icon: 'tribes', tone: 'p', val: rep, thumb: kpiSquares(rep, b.tribes.length), foot: 'of ' + b.tribes.length + ' tribes', pill: '<span class="pill ' + (below ? 'warn' : 'up') + '">' + below + ' below base</span>' }),
+    kpi({ label: 'Latest day', icon: 'people', tone: 'g', val: fmt(lastT), thumb: kpiSpark(totals), foot: prevT ? 'vs ' + esc(shortDate(prevDay)) : 'first day', pill: prevT ? pillOf(delta) : '' }),
+    kpi({ label: 'Against baseline', icon: 'gauge', tone: 'a', val: fmt(vs, 1) + '%', thumb: kpiGauge(vs), foot: 'cumulative avg ' + fmt(avg, 1), pill: '<span class="pill ' + (vs >= 100 ? 'up' : 'warn') + '">Base ' + fmt(base, 1) + '</span>' }),
+    kpi({ label: 'Tribes reporting', icon: 'tribes', tone: 'p', val: rep, thumb: kpiSquares(rep, b.tribes.length), foot: 'of ' + b.tribes.length + ' tribes', pill: '<span class="pill ' + (below ? 'warn' : 'up') + '">' + below + ' below baseline</span>' }),
     kpi({ label: admin ? 'My open requests' : 'Awaiting approval', icon: 'inbox', tone: need && !admin ? 'r' : '', go: 'requests', val: S.reqsNA ? '–' : (S.reqs === null ? '…' : need), thumb: kpiRows(pend.map(r => r.title)), foot: S.reqsNA ? 'Setup needed' : (admin ? 'with the central admin' : (need ? 'tap to review' : 'all clear')), pill: '' })
   ].join('');
   // colonies today
   const cols = b.colonies.map(c => ({ n: c.name, v: c.vals[li] || 0, base: c.baseline || 0 })).sort((x, y) => y.v - x.v), mxc = Math.max(1, cols[0] ? cols[0].v : 1);
-  const best = cols[0], worst = cols.slice().sort((x, y) => (x.v - x.base) - (y.v - y.base))[0];
-  const bt = b.tribes.slice().sort((x, y) => (y.vals[li] || 0) - (x.vals[li] || 0))[0];
+  const rc = D.colonies.filter(c => c.has).sort(rankOv), rh = D.hubs.slice().sort(rankOv), rt = D.tribes.slice().sort(rankOv);
   const cap = s => String(s || '').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+  const sg = v => (v > 0.005 ? '+' : v < -0.005 ? '−' : '') + fmt(Math.abs(v), 1);
+  const callout = (tone, icon, label, row, nameOf, whoOf) => !row ? '' : '<div class="callout"><div class="cl"><span class="k-ic ' + tone + '" style="width:22px;height:22px;border-radius:7px">' + SVG(K_ICON[icon]) + '</span>' + label + '</div><div class="cv">' + esc(nameOf(row)) + '</div><div class="cs"><b>' + sg(row.overall) + '</b> vs baseline · avg ' + fmt(row.avg, 1) + ' / base ' + fmt(row.baseline, 1) + '</div>' + (whoOf(row) ? '<div class="cs">' + esc(whoOf(row).slice(0, 30)) + '</div>' : '') + '</div>';
   const hero = '<div class="card hero fade-in"><div class="eyebrow"><span style="color:var(--accent)">✦</span> LATEST DAY · ' + esc(shortDate(b.dates[li])) + '</div><h2>' + fmt(lastT) + ' in attendance</h2><div class="sub">' + esc(longDate(b.dates[li])) + ' · ' + b.tribes.length + ' tribes · ' + b.colonies.length + ' colonies · ' + b.hubs.length + ' hubs</div>' +
     '<div class="chart">' + (totals.length > 1 ? areaChart(totals, [shortDate(b.dates[rec[0]]), shortDate(b.dates[li])]) : '<div class="empty">One more day and the trend line appears.</div>') + '</div>' +
     '<div class="callouts">' +
-      (best ? '<div class="callout"><div class="cl"><span class="k-ic g" style="width:22px;height:22px;border-radius:7px">' + SVG(K_ICON.trophy) + '</span>Top colony</div><div class="cv">' + esc(cap(best.n)) + '</div><div class="cs">' + fmt(best.v) + ' present</div></div>' : '') +
-      (worst ? '<div class="callout"><div class="cl"><span class="k-ic a" style="width:22px;height:22px;border-radius:7px">' + SVG(K_ICON.alert) + '</span>Furthest below base</div><div class="cv">' + esc(cap(worst.n)) + '</div><div class="cs">' + fmt(worst.v - worst.base, 0) + ' vs baseline</div></div>' : '') +
-      (bt ? '<div class="callout"><div class="cl"><span class="k-ic" style="width:22px;height:22px;border-radius:7px">' + SVG(K_ICON.star) + '</span>Best tribe</div><div class="cv">Tribe ' + bt.n + '</div><div class="cs">' + fmt(bt.vals[li]) + ' present · ' + esc(cap(strip(bt.chief, /^CHIEF\s+/i)).slice(0, 26)) + '</div></div>' : '') +
+      callout('g', 'trophy', 'Top colony', rc[0], r => cap(r.name), r => '') +
+      callout('a', 'alert', 'Least colony', rc.length > 1 ? rc[rc.length - 1] : null, r => cap(r.name), r => '') +
+      callout('g', 'star', 'Best hub', rh[0], r => r.label, r => cap(strip(r.veteran, /^VETERAN\s+/i))) +
+      callout('a', 'alert', 'Least hub', rh.length > 1 ? rh[rh.length - 1] : null, r => r.label, r => cap(strip(r.veteran, /^VETERAN\s+/i))) +
+      callout('g', 'star', 'Best tribe', rt[0], r => r.label.replace('TRIBE', 'Tribe'), r => cap(strip(r.chief, /^CHIEF\s+/i))) +
+      callout('a', 'alert', 'Least tribe', rt.length > 1 ? rt[rt.length - 1] : null, r => r.label.replace('TRIBE', 'Tribe'), r => cap(strip(r.chief, /^CHIEF\s+/i))) +
     '</div></div>';
   const colList = '<div class="card fade-in"><h3>Colonies on ' + esc(shortDate(b.dates[li])) + '</h3>' + cols.map(c => '<div style="margin:10px 0"><div class="row" style="justify-content:space-between;gap:8px"><span style="font-weight:600;font-size:13.5px">' + esc(cap(c.n)) + '</span><span class="hint">' + fmt(c.v) + '</span></div><div style="height:8px;border-radius:8px;background:#eceef7;margin-top:5px;overflow:hidden"><div style="height:100%;width:' + (c.v / mxc * 100).toFixed(1) + '%;border-radius:8px;background:linear-gradient(90deg,#7b86f2,#4f5bd5)"></div></div></div>').join('') + '</div>';
   const mini = (S.reqs || []).slice(0, 4);
@@ -4340,7 +4344,7 @@ function showAuth(tab, msg, cls) {
   $v('authScreen').classList.add('on'); setAuthTab(tab || 'signin'); if (msg) authMsg(msg, cls);
   const live = !(S.settings.practice && !A.url);
   $v('authUrlBox').hidden = !live || !!url; $v('authUrl').value = url;
-  $v('authHost').hidden = !(live && url) && live; $v('authHost').textContent = !live ? 'Practice mode (made-up data). Demo admin login: admin@lbd.test / demo1234. Any passcode works for the central admin.' : (url ? 'Workbook: …' + url.slice(-14) + '. Only continue if the central admin sent you this link.' : '');
+  $v('authHost').hidden = !(live && url) && live; $v('authHost').textContent = !live ? : (url ? 'Workbook: …' + url.slice(-14) + '. Only continue if the central admin sent you this link.' : '');
   $v('authPreviewClose').hidden = true; $v('authCentral').hidden = false;
   document.getElementById('authTabs').style.display = '';
   setTimeout(() => { try { (A.tab === 'signin' ? $v('siEmail') : A.tab === 'central' ? $v('cePass') : $v('suName')).focus(); } catch (e) {} }, 100);
