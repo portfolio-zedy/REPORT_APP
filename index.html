@@ -697,6 +697,15 @@ body.role-admin .nav .only-central { display: none !important; }
 .callout .cv { font-size: 19px; font-weight: 730; letter-spacing: -.02em; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .callout .cs { font-size: 12.5px; color: var(--mute); margin-top: 1px; }
 .dash-two { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 18px; }
+.dash-two.eq { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); margin-top: 18px; }
+.vb-row { margin: 12px 0; } .vb-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.vb-top b { font-size: 13.5px; font-weight: 650; } .vb-top span { color: var(--mute); font-size: 12.5px; white-space: nowrap; }
+.vb-bar { position: relative; height: 9px; border-radius: 9px; background: #eceef7; margin-top: 6px; }
+.vb-bar i { display: block; height: 100%; border-radius: 9px; } .vb-bar u { position: absolute; top: -3px; bottom: -3px; width: 2px; background: #121a2c; opacity: .55; border-radius: 2px; }
+.vb-rank { display: flex; align-items: center; gap: 11px; padding: 10px 0; border-bottom: 1px solid #eef0f7; } .vb-rank:last-child { border-bottom: 0; }
+.vb-rank .n { width: 26px; height: 26px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-ink); font-weight: 800; font-size: 12.5px; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.vb-rank .tx { flex: 1; min-width: 0; } .vb-rank .tx b { display: block; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vb-rank .tx span { display: block; color: var(--mute); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rq-mini { display: flex; align-items: center; gap: 11px; padding: 11px 0; border-bottom: 1px solid #eef0f7; }
 .rq-mini:last-child { border-bottom: 0; }
 .rq-mini .av { width: 34px; height: 34px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-ink); font-weight: 800; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; flex: none; }
@@ -753,6 +762,7 @@ body.role-admin .nav .only-central { display: none !important; }
   .chip { flex: none; }
   main { padding: 16px 14px calc(100px + env(safe-area-inset-bottom)); }
   .dash-two { grid-template-columns: 1fr; }
+  .dash-two.eq { grid-template-columns: 1fr; }
 }
 @media (max-width: 700px) {
   h2.pt { font-size: 24px; }
@@ -995,6 +1005,8 @@ body.sb-collapsed .nav-grp .nav-sub { display: none !important; }
       <label class="f" style="margin:0">Report day</label>
       <select id="expDate"></select>
       <button class="btn ghost small" id="expRefresh">↻ Refresh from workbook</button>
+      <label class="f only-central" style="margin:0 0 0 8px" title="Used only by the Map's Copy · picked baseline report">Alternate baseline day</label>
+      <select id="expBase" class="only-central"></select>
       <span class="grow"></span>
     </div>
     <div id="expMsg"></div>
@@ -1912,6 +1924,9 @@ const DOCS = [
   { id: 'district', name: 'Daily District Report', file: 'DAILY DISTRICT REPORT', color: '#3b5b92', orient: 'portrait', desc: 'States and countries, plus the "not in database" count.', build: reportDistrict },
   { id: 'colony', name: 'Daily Colony Report', file: 'DAILY COLONY REPORT', color: '#c9772b', orient: 'portrait', desc: 'The seven colonies ranked by cumulative average minus baseline.', build: reportColony },
   { id: 'league', name: 'Daily League Report', file: 'DAILY LEAGUE REPORT', color: '#1f3a5f', orient: 'portrait', desc: 'Colonies plus the five best and least hubs and tribes (districts by daily change).', build: reportLeague },
+  { id: 'nneoma', name: "Chief Nneoma's Report", file: 'CHIEF NNEOMAS REPORT', color: '#2b6f77', orient: 'landscape', desc: 'Admin teams ranked by cumulative average minus baseline.', central: true, build: reportNneoma },
+  { id: 'maps', name: "Map's Copy", file: 'MAPS COPY', color: '#3d4651', orient: 'landscape', desc: 'S/N, salary scale and overall performance against the workbook baselines.', central: true, build: reportMaps },
+  { id: 'maps2', name: "Map's Copy · picked baseline", file: 'MAPS COPY FROM BASELINE', color: '#8a5a1c', orient: 'landscape', desc: 'Same layout, but you pick the baseline day: baseline is that day\'s attendance and the average is counted from that day.', central: true, build: reportMaps2 }
 ];
 
 /* =====================================================================
@@ -2375,9 +2390,11 @@ function renderExports() {
   if (!days.length) { $('expMsg').innerHTML = '<div class="banner info"><span class="ic">i</span><div>No attendance has been entered in this workbook yet.</div></div>'; $('docGrid').innerHTML = ''; return; }
   if (!S.expDate || !days.includes(S.expDate)) S.expDate = days[days.length - 1];
   sel.innerHTML = days.slice().reverse().map(d => '<option value="' + d + '"' + (d === S.expDate ? ' selected' : '') + '>' + esc(longDate(d)) + '</option>').join('');
+  const bsel = $('expBase'); if (!S.settings.altBase || !days.includes(S.settings.altBase)) S.settings.altBase = days[0];
+  bsel.innerHTML = days.map(d => '<option value="' + d + '"' + (d === S.settings.altBase ? ' selected' : '') + '>' + esc(longDate(d)) + '</option>').join('');
   const D = computeDay(b, S.expDate);
   $('expMsg').innerHTML = D.hasYesterday ? '' : '<div class="banner warn"><span class="ic">!</span><div>Yesterday (' + esc(shortDate(D.prev)) + ') has no numbers in the workbook, so scores for this day compare against zero.</div></div>';
-  $('docGrid').innerHTML = DOCS.map(d => '<div class="doc" style="--c:' + d.color + '"><h4>' + esc(d.name) + '</h4><p>' + esc(d.desc) + '</p><div class="row"><button class="btn small ghost" data-prev="' + d.id + '">Preview</button><button class="btn small" data-pdf="' + d.id + '">Save PDF</button></div></div>').join('');
+  $('docGrid').innerHTML = DOCS.filter(d => !d.central || !isAdminRole()).map(d => '<div class="doc" style="--c:' + d.color + '"><h4>' + esc(d.name) + '</h4><p>' + esc(d.desc) + '</p><div class="row"><button class="btn small ghost" data-prev="' + d.id + '">Preview</button><button class="btn small" data-pdf="' + d.id + '">Save PDF</button></div></div>').join('');
   $('docGrid').insertAdjacentHTML('beforeend', '<div class="doc" style="--c:#0f766e"><h4>Backend data</h4><p>The numbers behind the reports, straight from the workbook: every day recorded, the baseline, the average and cumulative minus baseline. Download as a spreadsheet (CSV).</p><div class="row">' + [['tribes', 'Tribes'], ['hubs', 'Hubs'], ['colonies', 'Colonies'], ['districts', 'Districts']].map(t => '<button class="btn small ghost" data-be="' + t[0] + '">⬇ ' + t[1] + '</button>').join('') + '</div></div>');
   $('docGrid').querySelectorAll('[data-be]').forEach(x => x.onclick = () => exportBackendCsv(x.dataset.be));
   $('docGrid').querySelectorAll('[data-prev]').forEach(x => x.onclick = () => previewDoc(x.dataset.prev));
@@ -2499,6 +2516,7 @@ function wire() {
   $('modalBack').addEventListener('click', e => { if (e.target === $('modalBack') && !$('askYes')) closeModal(); });
   $('pendClear').onclick = () => { S.pend = {}; renderEdit(); }; $('pendReview').onclick = reviewEdits;
   $('expDate').onchange = () => { S.expDate = $('expDate').value; renderExports(); };
+  $('expBase').onchange = () => { S.settings.altBase = $('expBase').value; saveSettings(); renderExports(); };
   $('expRefresh').onclick = async () => { await refreshBook(); toast('Refreshed from the workbook'); };
   $('btnAddProf').onclick = () => { readSettingsForm(); S.settings.profiles.push({ id: 'w' + Date.now(), name: 'New workbook', url: '' }); if (!S.settings.active) S.settings.active = S.settings.profiles[0].id; renderProfiles(); };
   $('profTable').addEventListener('click', e => { const d = e.target.closest('[data-pd]'); if (!d) return; readSettingsForm(); S.settings.profiles = S.settings.profiles.filter(p => p.id !== d.dataset.pd); if (S.settings.active === d.dataset.pd) S.settings.active = (S.settings.profiles[0] || {}).id || ''; renderProfiles(); });
@@ -5747,7 +5765,20 @@ function renderDashboard() {
   const mini = (S.reqs || []).slice(0, 4);
   const reqList = '<div class="card fade-in"><div class="row" style="justify-content:space-between"><h3 style="margin:0">' + (admin ? 'My latest requests' : 'Latest requests') + '</h3><button class="btn small ghost" data-go="requests">Open</button></div>' +
     (S.reqsNA ? '<div class="hint" style="margin-top:10px">' + (admin ? 'Requests are not switched on yet.' : 'Finish the one-time script setup in Requests to switch this on.') + '</div>' : mini.length ? mini.map(r => '<div class="rq-mini"><span class="av">' + esc(initials(r.admin)) + '</span><div class="tx"><b>' + esc(r.title) + '</b><span>' + esc(admin ? '' : r.admin + ' · ') + esc(ago(r.created)) + '</span></div><span class="tag ' + (STATUS_TAG[r.status] || [''])[0] + '">' + esc((STATUS_TAG[r.status] || ['', r.status])[1]) + '</span></div>').join('') : '<div class="empty"><b>No requests yet</b>' + (admin ? 'Ask for a change from the Edit page.' : 'Other admins\' requests will show here.') + '</div>') + '</div>';
-  box.innerHTML = '<div class="kpis">' + cards + '</div>' + hero + '<div class="dash-two">' + reqList + colList + '</div>';
+  const dayLab = esc(shortDate(b.dates[li]));
+  const vsPill = (v, base) => '<span class="pill ' + (v - base > 0.005 ? 'up' : v - base < -0.005 ? 'down' : '') + '">' + (v - base > 0.005 ? '+' : v - base < -0.005 ? '−' : '') + fmt(Math.abs(v - base), Number.isInteger(v - base) ? 0 : 1) + '</span>';
+  const pctOf = (v, base) => base > 0 ? fmt(v / base * 100, 0) + '% of baseline' : 'no baseline';
+  const colVB = D.colonies.filter(c => c.has).map(c => ({ n: c.name, v: c.t, base: c.baseline })).sort((x, y) => ((y.v - y.base) - (x.v - x.base)) || (y.v - x.v));
+  const colVs = '<div class="card fade-in"><div class="row" style="justify-content:space-between"><h3 style="margin:0">Colonies on ' + dayLab + '</h3><span class="hint">rated against baseline · best first</span></div>' +
+    (colVB.length ? colVB.map(c => { const sc = Math.max(c.v, c.base, 1), ok = c.v >= c.base; return '<div class="vb-row"><div class="vb-top"><b>' + esc(cap(c.n)) + '</b><span>' + fmt(c.v) + ' / base ' + fmt(c.base, 1) + ' · ' + pctOf(c.v, c.base) + ' ' + vsPill(c.v, c.base) + '</span></div><div class="vb-bar"><i style="width:' + (c.v / sc * 100).toFixed(1) + '%;background:' + (ok ? 'linear-gradient(90deg,#34b98a,#1f9d6b)' : 'linear-gradient(90deg,#f0b04f,#e0892f)') + '"></i><u style="left:' + (c.base / sc * 100).toFixed(1) + '%" title="Baseline"></u></div></div>'; }).join('') : '<div class="empty">No colony numbers for this day.</div>') + '<div class="hint" style="margin-top:6px">The dark tick on each bar is the colony\'s baseline.</div></div>';
+  const topCard = (title, rows, nameOf, whoOf) => {
+    const t5 = rows.filter(r => r.t !== null && r.t !== undefined).map(r => ({ r, d: nz(r.t) - nz(r.baseline) })).sort((x, y) => (y.d - x.d) || (nz(y.r.t) - nz(x.r.t))).slice(0, 5);
+    return '<div class="card fade-in"><div class="row" style="justify-content:space-between"><h3 style="margin:0">' + title + '</h3><span class="hint">' + dayLab + ' · vs baseline</span></div>' +
+      (t5.length ? t5.map((x, i) => '<div class="vb-rank"><span class="n">' + (i + 1) + '</span><div class="tx"><b>' + esc(nameOf(x.r)) + '</b><span>' + esc(whoOf(x.r).slice(0, 34)) + (whoOf(x.r) ? ' · ' : '') + fmt(x.r.t) + ' / base ' + fmt(nz(x.r.baseline), 1) + ' · ' + pctOf(nz(x.r.t), nz(x.r.baseline)) + '</span></div>' + vsPill(nz(x.r.t), nz(x.r.baseline)) + '</div>').join('') : '<div class="empty">Nothing to rank yet.</div>') + '</div>';
+  };
+  const topHubs = topCard('Top 5 hubs', D.hubs, r => r.label, r => cap(strip(r.veteran, /^VETERAN\s+/i)));
+  const topTribes = topCard('Top 5 tribes', D.tribes, r => r.label.replace('TRIBE', 'Tribe'), r => cap(strip(r.chief, /^CHIEF\s+/i)));
+  box.innerHTML = '<div class="kpis">' + cards + '</div>' + hero + (admin ? '<div class="dash-two">' + reqList + colList + '</div>' : colVs + '<div class="dash-two eq">' + topHubs + topTribes + '</div>');
   wireDash(box);
 }
 function wireDash(box) {
