@@ -1132,28 +1132,10 @@ body.sb-collapsed .nav-grp .nav-sub { display: none !important; }
     <input type="text" id="setCsvFolder" placeholder="https://drive.google.com/drive/folders/…" autocomplete="off" autocapitalize="off">
     <div class="row" style="margin-top:10px">
       <button class="btn ghost small" id="btnCsvTest" type="button">Test the connection</button>
-      <button class="btn ghost small" id="btnCsvCopy" type="button">Copy the Apps Script</button>
+      <button class="btn ghost small" id="btnCsvCopy" type="button">Copy Code.gs</button>
       <span id="csvTestMsg" class="hint"></span>
     </div>
-    <details class="fold" style="margin-top:10px"><summary>One-time setup in the engine script</summary>
-      <pre id="csvSnippet" style="white-space:pre-wrap;word-break:break-word;font-size:12px;background:#f0f3f8;padding:10px;border-radius:8px;overflow-x:auto;margin:8px 0 0">// 1) In your engine script's doPost, next to the other actions, add:
-//      case 'saveCsv': return &lt;same JSON reply helper you already use&gt;(saveCsv_(body));
-// 2) Paste these two functions anywhere in the same project:
-function saveCsv_(body) {
-  var folder = getCsvFolder_(body.folderId);
-  var name = String(body.date || 'undated') + ' - ' + String(body.fileName || 'zoom.csv').replace(/[\\\/:*?"&lt;&gt;|]/g, '_');
-  var old = folder.getFilesByName(name);
-  while (old.hasNext()) old.next().setTrashed(true);      // same day + same name = replace
-  var f = folder.createFile(name, String(body.csv || ''), MimeType.CSV);
-  return { ok: true, id: f.getId(), name: f.getName(), url: f.getUrl(), folder: folder.getName() };
-}
-function getCsvFolder_(id) {
-  if (id) return DriveApp.getFolderById(id);
-  var it = DriveApp.getFoldersByName('LBD Zoom CSV uploads');
-  return it.hasNext() ? it.next() : DriveApp.createFolder('LBD Zoom CSV uploads');
-}
-// 3) Deploy &gt; Manage deployments &gt; Edit &gt; New version &gt; Deploy, and approve the Drive permission.</pre>
-    </details>
+    <p class="hint" style="margin-top:10px">One-time setup: the Drive steps (save, list, open) are already inside <b>Code.gs</b>, the single engine script. Press <b>Copy Code.gs</b>, paste it over everything in your engine Apps Script, then Deploy &gt; Manage deployments &gt; Edit &gt; New version &gt; Deploy and approve the Drive permission. If you use a custom folder above, also set the script property <code class="k">CSV_FOLDER_ID</code> to its ID so signed-in admins read the same folder.</p>
   </div>
 
   <div class="card" id="lockCard">
@@ -2817,7 +2799,7 @@ async function renderMonth() {
   h += '</div>';
   if (S.book) {
     h += '<div class="card"><h3>Start a new month</h3>' +
-      '<div class="banner info"><span class="ic">i</span><div>Do this on a <b>copy</b> of last month\'s workbook: in Google Sheets choose File → Make a copy, open the copy\'s Apps Script, paste the engine script, add the <code class="k">ACCESS_KEY</code> property, deploy it, and put its link in Settings. The tool also saves its own backup copy before it clears anything.</div></div>' +
+      '<div class="banner info"><span class="ic">i</span><div>Do this on a <b>copy</b> of last month\'s workbook: in Google Sheets choose File → Make a copy, open the copy\'s Apps Script, paste Code.gs (the single engine script), add the <code class="k">ACCESS_KEY</code> property, deploy it, and put its link in Settings. The tool also saves its own backup copy before it clears anything.</div></div>' +
       '<p>This workbook is for <b>' + esc(S.book.workbook) + '</b>, starting ' + esc(shortDate(S.book.dates[0])) + '.</p>' +
       '<div class="row" style="align-items:flex-end"><div><label class="f">New month</label>' + monthSel('nmMonth', nx.m) + ' <input type="text" id="nmYear" value="' + nx.y + '" style="width:80px"></div>' +
       '<div><label class="f">Baselines</label><select id="nmBase"><option value="average">Set from the average of the month just ended (recommended)</option><option value="keep">Keep the baselines as they are</option></select></div>' +
@@ -3162,7 +3144,7 @@ function ckShow(name, text) {
 }
 function ckDriveErr(e) {
   const m = String((e && e.message) || e || '');
-  return /unknown action/i.test(m) ? 'The workbook script does not have the Drive file steps yet. Add engine-csv.gs to the engine script (see README) and deploy a new version.' : m;
+  return /unknown action/i.test(m) ? 'The workbook script does not have the Drive file steps yet. Replace your engine script with the latest Code.gs (Settings > Save the Zoom .csv to Google Drive > Copy Code.gs) and deploy a new version.' : m;
 }
 $('ckDrive').onclick = async () => {
   const b = $('ckDrive'), sel = $('ckDriveSel'), open = $('ckDriveOpen');
@@ -3555,7 +3537,7 @@ function csvFolderId(v) {
   return /^[A-Za-z0-9_-]{10,}$/.test(v) ? v : '';
 }
 function csvFriendly(msg) {
-  if (/unknown action/i.test(msg)) return 'The workbook script does not have the "saveCsv" step yet. Open Settings > Save the Zoom .csv to Google Drive and follow the one-time setup.';
+  if (/unknown action/i.test(msg)) return 'The workbook script does not have the "saveCsv" step yet. Open Settings > Save the Zoom .csv to Google Drive, press Copy Code.gs, paste it over your engine script and deploy a new version.';
   return msg;
 }
 function csvStat(html) { const el = document.getElementById('csvDriveStat'); if (el) el.innerHTML = html; }
@@ -3596,7 +3578,7 @@ async function csvAutoSave(force) {
 }
 
 document.getElementById('btnCsvCopy').addEventListener('click', async () => {
-  const txt = document.getElementById('csvSnippet').textContent, m = document.getElementById('csvTestMsg');
+  const txt = ENGINE_SCRIPT, m = document.getElementById('csvTestMsg');
   try { await navigator.clipboard.writeText(txt); m.textContent = 'Copied ✓'; } catch (e) { m.textContent = 'Could not copy. Press and hold the script, then copy.'; }
   setTimeout(() => { m.textContent = ''; }, 4000);
 });
@@ -3874,25 +3856,1429 @@ function reqCard(r, central) {
     (pend && central ? '<div class="row" style="margin-top:14px"><button class="btn accent" data-ap="' + esc(r.id) + '">Approve ▸</button><button class="btn ghost" data-rj="' + esc(r.id) + '">Decline</button></div>' : '') +
     (pend && !central ? '<div class="row" style="margin-top:12px"><button class="btn small ghost" data-cn="' + esc(r.id) + '">Withdraw</button></div>' : '') + '</div>';
 }
-const REQ_SCRIPT = String.raw`/* ===== LBD: admin accounts (sign-up, approval, sign-in) + update requests =====
-   Add this as a NEW file (for example Requests.gs) in the engine script project.
+/* The one and only engine script (Code.gs). Settings and the Requests page copy this. */
+const ENGINE_SCRIPT = String.raw`/**
+ * LBD DAILY REPORT ENGINE API  (ONE FILE: Code.gs)
+ * ---------------------------------------------------------------------------
+ * Google Apps Script. Paste this WHOLE file into the Apps Script editor of the
+ * MONTHLY workbook (Extensions > Apps Script), replacing everything in Code.gs,
+ * then Deploy > Manage deployments > Edit > New version > Deploy (first time:
+ * Deploy > New deployment > Web app) and approve the permissions.
+ *
+ * THIS FILE HOLDS EVERYTHING (no other .gs file is needed any more):
+ *   PART 1  the engine and the doPost router
+ *   PART 2  admin accounts (sign-up, approval, sign-in) + update requests
+ *   PART 3  Zoom .csv files in Google Drive (save, list, read)
+ *   If your project still has Requests.gs or another extra file, delete it, or
+ *   Apps Script will complain about duplicate function names.
+ *
+ * What it does for the "LBD Daily Report Tool" (the HTML file):
+ *   getBook      reads names, mappings, baselines and every daily number
+ *   writeDay     puts one day's tribe, district, hub and colony counts into the workbook
+ *   edit         changes chief/deputy, veteran, regent/associate, mayor, admin, hub map, colony map
+ *   history/undo shows every change the tool made and can put the old values back
+ *   baseline     edits the BASELINE column (tribes, hubs, colonies) through "edit"
+ *   getAverages / setAverage   reads and rewrites the AVERAGE column formulas (which days count)
+ *   masterInit / getMaster / masterEdit   an online MASTER DATABASE of who leads what
+ *   syncDesign   copies names from the master into the COLONY DESIGN sheet (layout untouched)
+ *   syncWorkbook copies master names and mappings into MAINDASH / HUB DB / mappings
+ *   newMonth     (run on a COPY of last month's workbook) new dates, clears the numbers, sets baselines from the month just ended
+ *   setupTabs    creates any missing tab the tool needs, with headers and guidance notes, plus a SETUP GUIDE tab
+ *   saveCsv / listCsvs / getCsv   keeps every counted Zoom .csv in Drive and lets the attendance checker pull them
+ *
+ * Every write goes through ONE function (applyChanges) which saves the old
+ * values to the TOOL_LOG sheet first, so nothing is ever lost.
+ *
+ * SECURITY: the passcode is NOT in this file. Set it once:
+ *   Apps Script editor > Project Settings (gear icon) > Script properties >
+ *   Add script property  ACCESS_KEY  =  your passcode.
+ * The tool sends the passcode (or a signed-in session token) in the request
+ * body (not in the web address). ACCESS_KEY is the central admin's passcode.
+ *
+ * OPTIONAL SCRIPT PROPERTIES
+ *   NOTIFY_EMAIL   get an email for each new admin sign-up
+ *   MASTER_ID      keep the master database in its own Google Sheet
+ *   CSV_FOLDER_ID  the Drive folder for the Zoom .csv files (otherwise a folder
+ *                  called "LBD Zoom CSV uploads" is used). Set it if you use a
+ *                  custom folder, so signed-in admins read the same one.
+ * ---------------------------------------------------------------------------
+ */
 
-   In doPost, BEFORE your existing passcode check, put these lines
-   (body = the parsed JSON of the request, json_ = whatever helper you already use to reply):
+var SHEET = {
+  tribes: 'MAINDASH',
+  districts: 'District DASH',
+  hubs: 'HUB DB',
+  colonies: 'COLONY DASH',
+  hubMap: 'Hub_Mapping',
+  colonyMap: 'Colony_Mapping',
+  hubDB: 'Hub_DB',
+  log: 'TOOL_LOG',
+  design: 'COLONY DESIGN',
+  tribeDb: 'TRIBE DB'
+};
+/* The master database lives in its own Google Sheet (Script property MASTER_ID).
+   If MASTER_ID is not set, the three M_ tabs are kept inside this workbook instead. */
+var MASTER_TABS = {
+  M_TRIBES: ['TRIBE', 'HUB', 'CHIEF', 'LEADER (LDR)', 'DEPUTY'],
+  M_HUBS: ['HUB', 'VETERAN', 'COLONY', 'DESIGN BOX', 'DESIGN ROLE'],   // DESIGN BOX = the "HUB nn" box in COLONY DESIGN that shows this hub's veteran; ROLE = VETERAN or ASSISTANT
+  M_COLONIES: ['COLONY', 'REGENT', 'DEPUTY REGENT', 'ASSOCIATE', 'ADMIN TEAM']
+};
+var DESIGN_OFF = { hubFromColony: 3, tribeFromHub: 2 };   // column distance between boxes in COLONY DESIGN
+var NOT_IN_DB = 'Not in the database';
 
-     var pub = handlePublic_(body);                 // sign-up and sign-in need no passcode
-     if (pub) return json_(pub);
-     var who = authRole_(body.key);
-     if (!who) return json_({ ok: false, error: authError_(body.key) });
-     if (who.role === 'admin' && !ADMIN_ACTIONS_[body.action]) return json_({ ok: false, error: 'This account can only view and request updates.' });
-     var handled = handleRequests_(body, who);
-     if (handled) return json_(handled);
-     // ...your existing actions (ping, getBook, writeDay, edit, undo, saveCsv...) continue here
+/* ============================== entry points ============================== */
 
-   Then: Deploy > Manage deployments > Edit > New version > Deploy, and approve the permissions.
-   Your existing ACCESS_KEY stays the central admin's passcode.
-   Optional: add a Script Property NOTIFY_EMAIL to get an email for each new sign-up.
-   Passwords are never stored: only a salted hash goes into the sheet. */
+function doGet(e) {
+  return json_({ ok: true, service: 'LBD Daily Report Engine', note: 'Use POST. Open the LBD Daily Report Tool to connect.' });
+}
+
+function doPost(e) {
+  var lock = LockService.getScriptLock();
+  try {
+    var req = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+
+    // 1) sign-up and sign-in need no passcode (PART 2)
+    var pub = handlePublic_(req);
+    if (pub) return json_(pub);
+
+    // 2) who is calling? central passcode, older admin passcodes, or a signed-in session
+    var who = authRole_(req.key);
+    if (!who) return json_({ ok: false, error: authError_(req.key) });
+    if (who.role === 'admin' && !ADMIN_ACTIONS_[req.action]) {
+      return json_({ ok: false, error: 'This account can only view and request updates.' });
+    }
+
+    // 3) account / request actions: whoami, submitRequest, listRequests, decideRequest, listAccounts... (PART 2)
+    var handled = handleRequests_(req, who);
+    if (handled) return json_(handled);
+
+    // 3b) Zoom .csv files in Drive: saveCsv, listCsvs, getCsv (PART 3)
+    var csvDone = handleCsv_(req, who);
+    if (csvDone) return json_(csvDone);
+
+    // 4) the engine actions
+    var action = String(req.action || '');
+    var readOnly = (action === 'ping' || action === 'getBook' || action === 'history' || action === 'getMaster' || action === 'getAverages');
+    if (!readOnly) { if (!lock.tryLock(20000)) return json_({ ok: false, error: 'The workbook is busy, try again in a moment.' }); }
+    var out;
+    switch (action) {
+      case 'ping': out = ping_(); break;
+      case 'getBook': out = getBook_(); break;
+      case 'writeDay': out = writeDay_(req); break;
+      case 'edit': out = edit_(req); break;
+      case 'history': out = history_(); break;
+      case 'undo': out = undo_(req); break;
+      case 'getAverages': out = getAverages_(); break;
+      case 'setAverage': out = setAverage_(req); break;
+      case 'getMaster': out = getMaster_(); break;
+      case 'masterInit': out = masterInit_(req); break;
+      case 'masterEdit': out = masterEdit_(req); break;
+      case 'syncDesign': out = syncDesign_(req); break;
+      case 'syncWorkbook': out = syncWorkbook_(req); break;
+      case 'newMonth': out = newMonth_(req); break;
+      case 'setupTabs': out = setupTabs_(req); break;
+      default: return json_({ ok: false, error: 'Unknown action: ' + action });
+    }
+    out.ok = true;
+    return json_(out);
+  } catch (err) {
+    return json_({ ok: false, error: String(err && err.message ? err.message : err) });
+  } finally {
+    try { lock.releaseLock(); } catch (x) { /* not held */ }
+  }
+}
+
+function json_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
+
+/* ================================ helpers ================================= */
+
+function ss_() { return SpreadsheetApp.getActiveSpreadsheet(); }
+function masterSs_() {
+  var id = PropertiesService.getScriptProperties().getProperty('MASTER_ID');
+  if (!id) return ss_();
+  try { return SpreadsheetApp.openById(id); }
+  catch (e) { throw new Error('The master database could not be opened. Check the MASTER_ID script property and that this account can edit that sheet.'); }
+}
+/** Sheet names starting with "@M:" live in the master database. */
+function sheet_(name) {
+  var isM = String(name).indexOf('@M:') === 0, real = isM ? String(name).slice(3) : name;
+  var s = (isM ? masterSs_() : ss_()).getSheetByName(real);
+  if (!s) throw new Error('The sheet "' + real + '" was not found in ' + (isM ? 'the master database.' : 'this workbook.'));
+  return s;
+}
+/** Names are typed by people, so refuse anything a spreadsheet could run as a formula. */
+function safe_(v) {
+  var t = txt_(v);
+  if (/^[=+@]/.test(t) || /^-./.test(t)) throw new Error('"' + t.slice(0, 20) + '" cannot start with = + - or @.');
+  return t;
+}
+function num_(v) { return (typeof v === 'number' && isFinite(v)) ? v : null; }
+function txt_(v) { return v === null || v === undefined ? '' : String(v).replace(/\s+/g, ' ').trim(); }
+function digits_(v) { var m = /(\d+)/.exec(String(v === null || v === undefined ? '' : v)); return m ? parseInt(m[1], 10) : null; }
+function norm_(v) { return txt_(v).toLowerCase(); }
+function iso_(d) { return Utilities.formatDate(d, ss_().getSpreadsheetTimeZone(), 'yyyy-MM-dd'); }
+
+/** Reads the dates in row 1 of a sheet -> [{iso, col}] (col is 1-based). */
+function dateCols_(s) {
+  var lastCol = s.getLastColumn();
+  var head = s.getRange(1, 1, 1, lastCol).getValues()[0];
+  var out = [];
+  for (var c = 0; c < head.length; c++) {
+    if (head[c] instanceof Date) out.push({ iso: iso_(head[c]), col: c + 1 });
+  }
+  return out;
+}
+function colFor_(cols, iso) {
+  for (var i = 0; i < cols.length; i++) if (cols[i].iso === iso) return cols[i].col;
+  return null;
+}
+
+/* --------------------------- row locators (by label) --------------------------- */
+
+function tribeRows_() {
+  var s = sheet_(SHEET.tribes), last = s.getLastRow();
+  var vals = s.getRange(1, 1, last, 3).getValues(), out = [];
+  for (var r = 1; r < vals.length; r++) {
+    var m = /^TRIBE\s+(\d+)$/i.exec(txt_(vals[r][0]));
+    if (!m) continue;
+    var n = parseInt(m[1], 10);
+    var nextA = r + 1 < vals.length ? txt_(vals[r + 1][0]) : '';
+    var nextB = r + 1 < vals.length ? txt_(vals[r + 1][1]) : '';
+    out.push({ n: n, row: r + 1, chief: txt_(vals[r][1]), baseline: num_(vals[r][2]),
+      deputyRow: (r + 1 < vals.length && nextA === '') ? r + 2 : null, deputy: (nextA === '') ? nextB : '' });
+  }
+  return out;
+}
+
+function hubRows_() {
+  var s = sheet_(SHEET.hubs), vals = s.getRange(1, 1, 45, 3).getValues(), out = [];
+  for (var r = 1; r < vals.length; r++) {
+    var a = txt_(vals[r][0]);
+    if (!a) break;
+    var m = /^HUB\s+(\d+)$/i.exec(a);
+    if (!m) break;
+    out.push({ n: parseInt(m[1], 10), row: r + 1, label: a, veteran: txt_(vals[r][1]), baseline: num_(vals[r][2]) });
+  }
+  return out;
+}
+
+function colonyRows_() {
+  var s = sheet_(SHEET.colonies), vals = s.getRange(1, 1, 60, 13).getValues(), out = [], r;
+  for (r = 1; r < vals.length; r++) {
+    var a = txt_(vals[r][0]);
+    if (!a) break;
+    out.push({ name: a, row: r + 1, regent: txt_(vals[r][1]), baseline: num_(vals[r][2]) });
+  }
+  // grade-level / admin block: col D = admin team, col E = colony, B = TL, C = TA
+  for (r = 1; r < vals.length; r++) {
+    var colony = txt_(vals[r][4]);
+    if (!colony || !/^ADMIN/i.test(txt_(vals[r][3]))) continue;
+    for (var i = 0; i < out.length; i++) {
+      if (norm_(out[i].name) === norm_(colony)) { out[i].admin = txt_(vals[r][3]); out[i].adminRow = r + 1; out[i].tl = num_(vals[r][1]); out[i].ta = num_(vals[r][2]); }
+    }
+  }
+  return out;
+}
+
+function districtRows_() {
+  var s = sheet_(SHEET.districts), vals = s.getRange(1, 1, 60, 2).getValues(), out = [];
+  for (var r = 1; r < vals.length; r++) {
+    var a = txt_(vals[r][0]);
+    if (!a || /^TOTAL$/i.test(a)) break;
+    out.push({ name: a, row: r + 1, mayor: txt_(vals[r][1]) });
+  }
+  return out;
+}
+
+function mapRows_(name, width) {
+  var s = sheet_(name), last = Math.max(2, s.getLastRow());
+  var vals = s.getRange(2, 1, last - 1, width).getValues(), out = [];
+  for (var i = 0; i < vals.length; i++) {
+    if (!txt_(vals[i][0]) && !txt_(vals[i][2])) continue;
+    out.push({ row: i + 2, a: txt_(vals[i][0]), b: txt_(vals[i][1]), c: txt_(vals[i][2]) });
+  }
+  return out;
+}
+
+/* ================================== getBook ================================== */
+
+function ping_() {
+  var s = ss_();
+  return { workbook: s.getName(), timezone: s.getSpreadsheetTimeZone(), time: new Date().toISOString() };
+}
+
+function seriesFor_(sheetName, rows, dateCols) {
+  var s = sheet_(sheetName);
+  var maxCol = 0; dateCols.forEach(function (d) { if (d.col > maxCol) maxCol = d.col; });
+  var maxRow = 0; rows.forEach(function (r) { if (r.row > maxRow) maxRow = r.row; });
+  var grid = s.getRange(1, 1, maxRow, maxCol).getValues();
+  return rows.map(function (r) {
+    return dateCols.map(function (d) { return num_(grid[r.row - 1][d.col - 1]); });
+  });
+}
+
+function getBook_() {
+  var tribes = tribeRows_(), hubs = hubRows_(), colonies = colonyRows_(), districts = districtRows_();
+  var tCols = dateCols_(sheet_(SHEET.tribes)), hCols = dateCols_(sheet_(SHEET.hubs)),
+      cCols = dateCols_(sheet_(SHEET.colonies)), dCols = dateCols_(sheet_(SHEET.districts));
+  // the tool works on the dates the TRIBE sheet knows; other sheets are aligned by date
+  var dates = tCols.map(function (d) { return d.iso; });
+  function align_(cols, series) {
+    return series.map(function (vals) {
+      var byIso = {}; cols.forEach(function (c, i) { byIso[c.iso] = vals[i]; });
+      return dates.map(function (d) { return byIso.hasOwnProperty(d) ? byIso[d] : null; });
+    });
+  }
+  var tS = align_(tCols, seriesFor_(SHEET.tribes, tribes, tCols));
+  var hS = align_(hCols, seriesFor_(SHEET.hubs, hubs, hCols));
+  var cS = align_(cCols, seriesFor_(SHEET.colonies, colonies, cCols));
+  var dS = align_(dCols, seriesFor_(SHEET.districts, districts, dCols));
+  var hm = mapRows_(SHEET.hubMap, 3).map(function (r) { return { row: r.row, hub: digits_(r.a), veteran: r.b, tribe: digits_(r.c) }; });
+  var cm = mapRows_(SHEET.colonyMap, 3).map(function (r) { return { row: r.row, hub: digits_(r.a), colony: r.b, regent: r.c }; });
+  return {
+    workbook: ss_().getName(),
+    dates: dates,
+    tribes: tribes.map(function (t, i) { return { n: t.n, chief: t.chief, deputy: t.deputy, baseline: t.baseline, vals: tS[i] }; }),
+    hubs: hubs.map(function (h, i) { return { n: h.n, label: h.label, veteran: h.veteran, baseline: h.baseline, vals: hS[i] }; }),
+    colonies: colonies.map(function (c, i) { return { name: c.name, regent: c.regent, admin: c.admin || '', tl: c.tl === undefined ? null : c.tl, ta: c.ta === undefined ? null : c.ta, baseline: c.baseline, vals: cS[i] }; }),
+    districts: districts.map(function (d, i) { return { name: d.name, mayor: d.mayor, vals: dS[i] }; }),
+    hubMap: hm.filter(function (x) { return x.hub && x.tribe; }),
+    colonyMap: cm.filter(function (x) { return x.hub && x.colony; })
+  };
+}
+
+/* ================================ roll-up maths ================================ */
+/* Same rules as the workbook: hub = sum of its tribes (Hub_Mapping);
+   colony = sum of its hubs (Colony_Mapping). Kept identical to the HTML tool. */
+
+function rollup_(tribeCounts, hubMap, colonyMap, hubList, colonyList) {
+  var tribeToHub = {};
+  hubMap.forEach(function (m) { tribeToHub[m.tribe] = m.hub; });
+  var hubOfColony = {};
+  colonyMap.forEach(function (m) { hubOfColony[m.hub] = m.colony; });
+  var hubTotals = {}, unmapped = [];
+  hubList.forEach(function (h) { hubTotals[h.n] = 0; });
+  Object.keys(tribeCounts).forEach(function (k) {
+    var n = parseInt(k, 10), v = tribeCounts[k] || 0, h = tribeToHub[n];
+    if (h === undefined || hubTotals[h] === undefined) { if (v > 0) unmapped.push({ tribe: n, count: v }); return; }
+    hubTotals[h] += v;
+  });
+  var colTotals = {}, hubsNoColony = [];
+  colonyList.forEach(function (c) { colTotals[norm_(c.name)] = 0; });
+  hubList.forEach(function (h) {
+    var col = hubOfColony[h.n];
+    if (col === undefined || colTotals[norm_(col)] === undefined) { if (hubTotals[h.n] > 0) hubsNoColony.push({ hub: h.n, count: hubTotals[h.n] }); return; }
+    colTotals[norm_(col)] += hubTotals[h.n];
+  });
+  return { hubTotals: hubTotals, colTotals: colTotals, unmappedTribes: unmapped, hubsWithoutColony: hubsNoColony };
+}
+
+/* ================================= writeDay ================================= */
+
+function validCount_(v) { return typeof v === 'number' && isFinite(v) && v >= 0 && Math.floor(v) === v; }
+
+function writeDay_(req) {
+  var iso = String(req.date || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) throw new Error('A date like 2026-10-21 is required.');
+  var tribes = tribeRows_(), hubs = hubRows_(), colonies = colonyRows_(), districts = districtRows_();
+  var cols = {
+    tribes: colFor_(dateCols_(sheet_(SHEET.tribes)), iso),
+    hubs: colFor_(dateCols_(sheet_(SHEET.hubs)), iso),
+    colonies: colFor_(dateCols_(sheet_(SHEET.colonies)), iso),
+    districts: colFor_(dateCols_(sheet_(SHEET.districts)), iso)
+  };
+  Object.keys(cols).forEach(function (k) { if (!cols[k]) throw new Error('The date ' + iso + ' is not a column in the ' + SHEET[k] + ' sheet. Is this the right month?'); });
+
+  // districts === null/undefined means "leave the District DASH untouched" (e.g. no member database loaded)
+  var skipDistricts = (req.districts === undefined || req.districts === null);
+  var tc = req.tribes || {}, dc = req.districts || {};
+  var bad = [];
+  Object.keys(tc).forEach(function (k) { if (!validCount_(tc[k])) bad.push('tribe ' + k); });
+  Object.keys(dc).forEach(function (k) { if (!validCount_(dc[k])) bad.push(k); });
+  if (bad.length) throw new Error('These counts are not whole numbers: ' + bad.slice(0, 8).join(', '));
+
+  var hm = mapRows_(SHEET.hubMap, 3).map(function (r) { return { hub: digits_(r.a), tribe: digits_(r.c) }; }).filter(function (x) { return x.hub && x.tribe; });
+  var cm = mapRows_(SHEET.colonyMap, 3).map(function (r) { return { hub: digits_(r.a), colony: r.b }; }).filter(function (x) { return x.hub && x.colony; });
+
+  // every tribe in the sheet gets a value (0 when it is not in the file)
+  var tribeFull = {}, unknownTribes = [];
+  tribes.forEach(function (t) { tribeFull[t.n] = tc[String(t.n)] || 0; });
+  Object.keys(tc).forEach(function (k) {
+    var n = parseInt(k, 10), known = tribes.some(function (t) { return t.n === n; });
+    if (!known && tc[k] > 0) unknownTribes.push({ tribe: n, count: tc[k] });
+  });
+  var roll = rollup_(tribeFull, hm, cm, hubs, colonies);
+
+  var distNames = {}; districts.forEach(function (d) { distNames[norm_(d.name)] = d; });
+  var unknownPlaces = [];
+  if (!skipDistricts) Object.keys(dc).forEach(function (k) { if (!distNames[norm_(k)] && dc[k] > 0) unknownPlaces.push({ place: k, count: dc[k] }); });
+
+  // build the change list
+  var changes = [];
+  tribes.forEach(function (t) { changes.push({ sheet: SHEET.tribes, row: t.row, col: cols.tribes, value: tribeFull[t.n], label: 'Tribe ' + t.n }); });
+  hubs.forEach(function (h) { changes.push({ sheet: SHEET.hubs, row: h.row, col: cols.hubs, value: roll.hubTotals[h.n] || 0, label: h.label }); });
+  colonies.forEach(function (c) { changes.push({ sheet: SHEET.colonies, row: c.row, col: cols.colonies, value: roll.colTotals[norm_(c.name)] || 0, label: c.name }); });
+  if (!skipDistricts) districts.forEach(function (d) {
+    var v = dc.hasOwnProperty(d.name) ? dc[d.name] : null;
+    if (v === null) { Object.keys(dc).forEach(function (k) { if (norm_(k) === norm_(d.name)) v = dc[k]; }); }
+    changes.push({ sheet: SHEET.districts, row: d.row, col: cols.districts, value: v === null ? 0 : v, label: d.name });
+  });
+
+  var info = describeChanges_(changes);
+  var existing = info.filter(function (c) { return c.oldValue !== '' && c.oldValue !== null; });
+  var formulas = info.filter(function (c) { return c.oldFormula; });
+  var totals = {
+    tribes: sum_(tribeFull), hubs: sum_(roll.hubTotals), colonies: sum_(roll.colTotals),
+    districts: skipDistricts ? null : changes.filter(function (c) { return c.sheet === SHEET.districts; }).reduce(function (a, c) { return a + c.value; }, 0)
+  };
+  var res = {
+    date: iso, dryRun: !!req.dryRun, totals: totals,
+    unmappedTribes: roll.unmappedTribes, hubsWithoutColony: roll.hubsWithoutColony,
+    unknownTribes: unknownTribes, unknownPlaces: unknownPlaces,
+    overwriting: existing.length, formulaCells: formulas.length,
+    hubTotals: roll.hubTotals, colTotals: roll.colTotals,
+    preview: info.map(function (c) { return { sheet: c.sheet, label: c.label, old: c.oldValue, value: c.value }; })
+  };
+  if (req.dryRun) return res;
+
+  if (formulas.length && !req.force) throw new Error(formulas.length + ' target cell(s) hold a formula, so nothing was written. Check the date column, or ask the admin to allow it.');
+  if (existing.length && !req.overwrite) throw new Error('That day already has ' + existing.length + ' number(s) in the workbook. Confirm "replace" in the tool to overwrite them (the old values are saved for undo).');
+  var id = applyChanges_(changes, 'writeDay', iso, String(req.note || ''));
+  res.logId = id;
+  res.written = changes.length;
+  return res;
+}
+
+function sum_(o) { var t = 0; Object.keys(o).forEach(function (k) { t += o[k] || 0; }); return t; }
+
+/* ==================================== edit ==================================== */
+/* Each edit is turned into plain cell changes, so preview / log / undo are the same
+   for every kind of edit. req.edits = [{type, ...}]                                */
+
+function edit_(req) {
+  var edits = req.edits || [];
+  if (!edits.length) throw new Error('Nothing to change.');
+  var changes = [];
+  var tribes = tribeRows_(), hubs = hubRows_(), colonies = colonyRows_(), districts = districtRows_();
+  var hubMapRows = mapRows_(SHEET.hubMap, 3), colMapRows = mapRows_(SHEET.colonyMap, 3);
+  var vetClean = function (s) { return txt_(s).replace(/^VETERAN\s+/i, '').toUpperCase(); };
+
+  edits.forEach(function (e) {
+    var name = txt_(e.name);
+    switch (e.type) {
+      case 'chief': {
+        var t = find_(tribes, 'n', e.tribe, 'Tribe ' + e.tribe);
+        changes.push(ch_(SHEET.tribes, t.row, 2, ('CHIEF ' + name.replace(/^CHIEF\s+/i, '')).toUpperCase(), 'Tribe ' + t.n + ' chief')); break;
+      }
+      case 'deputy': {
+        var t2 = find_(tribes, 'n', e.tribe, 'Tribe ' + e.tribe);
+        if (!t2.deputyRow) throw new Error('Tribe ' + t2.n + ' has no free row for a deputy in the workbook.');
+        var v = name ? ('DPT. ' + name.replace(/^DPT\.?\s+/i, '')).toUpperCase() : '';
+        changes.push(ch_(SHEET.tribes, t2.deputyRow, 2, v, 'Tribe ' + t2.n + ' deputy')); break;
+      }
+      case 'veteran': {
+        var h = find_(hubs, 'n', e.hub, 'Hub ' + e.hub), plain = vetClean(name);
+        if (!plain) throw new Error('A veteran name is required.');
+        changes.push(ch_(SHEET.hubs, h.row, 2, 'VETERAN ' + plain, 'Hub ' + h.n + ' veteran (HUB DB)'));
+        h.veteran = 'VETERAN ' + plain;
+        hubMapRows.forEach(function (m) { if (digits_(m.a) === h.n) { changes.push(ch_(SHEET.hubMap, m.row, 2, plain, 'Hub ' + h.n + ' veteran (mapping)')); m.b = plain; } });
+        var hubDbRows = mapRows_(SHEET.hubDB, 3);
+        hubDbRows.forEach(function (m) { if (digits_(m.a) === h.n && /^HUB\s+\d+$/i.test(m.a)) changes.push(ch_(SHEET.hubDB, m.row, 2, 'VETERAN ' + plain, 'Hub ' + h.n + ' veteran (Hub_DB)')); });
+        break;
+      }
+      case 'regent': {
+        var c = findBy_(colonies, function (x) { return norm_(x.name) === norm_(e.colony); }, 'colony ' + e.colony);
+        var regent = txt_(e.regent).replace(/^RGT\.?\s+/i, ''), assoc = txt_(e.associate).replace(/^ASSOCIATE\s+/i, '');
+        if (!regent) throw new Error('A regent name is required.');
+        var line = 'RGT. ' + regent.toUpperCase() + (assoc ? ' & ASSOCIATE ' + assoc.toUpperCase() : '');
+        changes.push(ch_(SHEET.colonies, c.row, 2, line, c.name + ' regent & associate'));
+        colMapRows.forEach(function (m) { if (norm_(m.b) === norm_(c.name)) { changes.push(ch_(SHEET.colonyMap, m.row, 3, 'RGT. ' + regent.toUpperCase(), c.name + ' regent (mapping)')); m.c = 'RGT. ' + regent.toUpperCase(); } });
+        break;
+      }
+      case 'admin': {
+        var c2 = findBy_(colonies, function (x) { return norm_(x.name) === norm_(e.colony); }, 'colony ' + e.colony);
+        if (!c2.adminRow) throw new Error('No admin-team row found for ' + c2.name + '.');
+        changes.push(ch_(SHEET.colonies, c2.adminRow, 4, ('ADMIN ' + name.replace(/^ADMIN\s+/i, '')).toUpperCase(), c2.name + ' admin team')); break;
+      }
+      case 'mayor': {
+        var d = findBy_(districts, function (x) { return norm_(x.name) === norm_(e.district); }, 'district ' + e.district);
+        var mv = name ? (/^NOT ASSIGNED$/i.test(name) ? 'NOT ASSIGNED' : ('MAYOR ' + name.replace(/^MAYOR\s+/i, '')).toUpperCase()) : '';
+        changes.push(ch_(SHEET.districts, d.row, 2, mv, d.name + ' mayor')); break;
+      }
+      case 'hubMap': {       // move a tribe into a hub (or add it)
+        var hubN = parseInt(e.hub, 10), tribeN = parseInt(e.tribe, 10);
+        var hub = find_(hubs, 'n', hubN, 'Hub ' + hubN);
+        var vetName = '';
+        hubMapRows.forEach(function (m) { if (digits_(m.a) === hubN && !vetName) vetName = m.b; });
+        var existingRow = null;
+        hubMapRows.forEach(function (m) { if (digits_(m.c) === tribeN) existingRow = m; });
+        var useVet = vetName || vetClean(hub.veteran);
+        if (existingRow) {
+          changes.push(ch_(SHEET.hubMap, existingRow.row, 1, 'Hub ' + hubN, 'Tribe ' + tribeN + ' -> Hub ' + hubN));
+          changes.push(ch_(SHEET.hubMap, existingRow.row, 2, useVet, 'Tribe ' + tribeN + ' veteran'));
+          existingRow.a = 'Hub ' + hubN; existingRow.b = useVet;
+        } else {
+          var nr = nextFreeRow_(SHEET.hubMap, hubMapRows, changes);
+          changes.push(ch_(SHEET.hubMap, nr, 1, 'Hub ' + hubN, 'Add Tribe ' + tribeN + ' to Hub ' + hubN));
+          changes.push(ch_(SHEET.hubMap, nr, 2, useVet, 'Tribe ' + tribeN + ' veteran'));
+          changes.push(ch_(SHEET.hubMap, nr, 3, 'Tribe ' + tribeN, 'Tribe ' + tribeN));
+          hubMapRows.push({ row: nr, a: 'Hub ' + hubN, b: useVet, c: 'Tribe ' + tribeN });
+        }
+        break;
+      }
+      case 'colonyMap': {    // move a hub into a colony
+        var hubN2 = parseInt(e.hub, 10);
+        var col = findBy_(colonies, function (x) { return norm_(x.name) === norm_(e.colony); }, 'colony ' + e.colony);
+        var regentText = '';
+        colMapRows.forEach(function (m) { if (norm_(m.b) === norm_(col.name) && !regentText) regentText = m.c; });
+        var existing2 = null;
+        colMapRows.forEach(function (m) { if (digits_(m.a) === hubN2) existing2 = m; });
+        if (existing2) {
+          changes.push(ch_(SHEET.colonyMap, existing2.row, 2, col.name, 'Hub ' + hubN2 + ' -> ' + col.name));
+          changes.push(ch_(SHEET.colonyMap, existing2.row, 3, regentText, 'Hub ' + hubN2 + ' regent'));
+          existing2.b = col.name; existing2.c = regentText;
+        } else {
+          var nr2 = nextFreeRow_(SHEET.colonyMap, colMapRows, changes);
+          changes.push(ch_(SHEET.colonyMap, nr2, 1, 'Hub ' + hubN2, 'Add Hub ' + hubN2));
+          changes.push(ch_(SHEET.colonyMap, nr2, 2, col.name, 'Hub ' + hubN2 + ' -> ' + col.name));
+          changes.push(ch_(SHEET.colonyMap, nr2, 3, regentText, 'Hub ' + hubN2 + ' regent'));
+          colMapRows.push({ row: nr2, a: 'Hub ' + hubN2, b: col.name, c: regentText });
+        }
+        break;
+      }
+      case 'baseline': {     // the BASELINE column: tribes (MAINDASH), hubs (HUB DB), colonies (COLONY DASH)
+        var bv = Number(e.value);
+        if (e.value === '' || e.value === null || !isFinite(bv) || bv < 0) throw new Error('A baseline must be a number that is 0 or more.');
+        bv = Math.round(bv * 10000) / 10000;
+        if (e.level === 'tribe') { var bt = find_(tribes, 'n', e.id, 'Tribe ' + e.id); changes.push(ch_(SHEET.tribes, bt.row, 3, bv, 'Tribe ' + bt.n + ' baseline')); }
+        else if (e.level === 'hub') { var bh = find_(hubs, 'n', e.id, 'Hub ' + e.id); changes.push(ch_(SHEET.hubs, bh.row, 3, bv, bh.label + ' baseline')); }
+        else if (e.level === 'colony') { var bc = findBy_(colonies, function (x) { return norm_(x.name) === norm_(e.id); }, 'colony ' + e.id); changes.push(ch_(SHEET.colonies, bc.row, 3, bv, bc.name + ' baseline')); }
+        else throw new Error('Unknown baseline level: ' + e.level);
+        break;
+      }
+      default: throw new Error('Unknown edit type: ' + e.type);
+    }
+  });
+
+  changes = lastPerCell_(changes);
+  var info = describeChanges_(changes);
+  var real = info.filter(function (c) { return c.formula ? c.oldFormula !== c.value : String(c.oldValue) !== String(c.value); });
+  var res = { dryRun: !!req.dryRun, changes: real.map(function (c) { return { sheet: c.sheet, label: c.label, old: c.oldValue, value: c.value }; }), count: real.length };
+  if (req.dryRun) return res;
+  if (!real.length) { res.note = 'Nothing was different, so nothing was written.'; return res; }
+  res.logId = applyChanges_(real, 'edit', '', String(req.note || ''));
+  return res;
+}
+
+/** If one batch changes the same cell twice, only the final change is kept. */
+function lastPerCell_(changes) {
+  var seen = {}, out = [];
+  for (var i = changes.length - 1; i >= 0; i--) {
+    var k = changes[i].sheet + '|' + changes[i].row + '|' + changes[i].col;
+    if (seen[k]) continue;
+    seen[k] = true; out.unshift(changes[i]);
+  }
+  return out;
+}
+function ch_(sheet, row, col, value, label) { return { sheet: sheet, row: row, col: col, value: value, label: label }; }
+function find_(list, key, val, what) {
+  for (var i = 0; i < list.length; i++) if (list[i][key] === parseInt(val, 10)) return list[i];
+  throw new Error(what + ' was not found in the workbook.');
+}
+function findBy_(list, fn, what) {
+  for (var i = 0; i < list.length; i++) if (fn(list[i])) return list[i];
+  throw new Error('The ' + what + ' was not found in the workbook.');
+}
+function nextFreeRow_(sheetName, rows, pending) {
+  var max = 1;
+  rows.forEach(function (r) { if (r.row > max) max = r.row; });
+  pending.forEach(function (c) { if (c.sheet === sheetName && c.row > max) max = c.row; });
+  return max + 1;
+}
+
+/* ================================ averages ================================ */
+/* The AVERAGE column of MAINDASH / HUB DB / COLONY DASH / TRIBE DB. Each row holds a
+   formula such as =AVERAGE(G3:AG3). The tool can rewrite them so that every row counts the
+   same days (a start date, an end date and optional days to leave out). */
+
+var AVG_TARGETS = [
+  { key: 'tribes', sheet: 'MAINDASH', label: 'Tribes (MAINDASH)' },
+  { key: 'hubs', sheet: 'HUB DB', label: 'Hubs (HUB DB)' },
+  { key: 'colonies', sheet: 'COLONY DASH', label: 'Colonies (COLONY DASH)' },
+  { key: 'tribeDb', sheet: 'TRIBE DB', label: 'Tribes (TRIBE DB)' }
+];
+
+function colLetter_(n) { var s = ''; while (n > 0) { var m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; }
+function colNumber_(L) { var n = 0; for (var i = 0; i < L.length; i++) n = n * 26 + (L.charCodeAt(i) - 64); return n; }
+
+/** Finds the AVERAGE column and the rows that hold an average formula. */
+function avgInfo_(t) {
+  var s = ss_().getSheetByName(t.sheet);
+  if (!s) return null;
+  var cols = dateCols_(s);
+  if (!cols.length) return null;
+  var head = s.getRange(1, 1, 1, s.getLastColumn()).getValues()[0], avgCol = 0;
+  for (var c = 0; c < head.length; c++) { if (/^\s*aver/i.test(String(head[c]))) { avgCol = c + 1; break; } }
+  if (!avgCol) return null;
+  var last = s.getLastRow(), rng = s.getRange(1, avgCol, last, 1), f = rng.getFormulas(), rows = [];
+  for (var r = 1; r < f.length; r++) if (/AVERAGE/i.test(f[r][0])) rows.push({ row: r + 1, formula: f[r][0] });
+  return { sheet: s, cols: cols, avgCol: avgCol, rows: rows };
+}
+
+/** Works out which days an existing formula counts -> "start|end|excluded,excluded". */
+function parseWindow_(formula, cols) {
+  var isoOfCol = function (L) { var n = colNumber_(L); for (var i = 0; i < cols.length; i++) if (cols[i].col === n) return cols[i].iso; return null; };
+  var m = /AVERAGE\(\s*\$?([A-Z]+)\$?\d+\s*:\s*\$?([A-Z]+)\$?\d+\s*\)/i.exec(formula);
+  if (m && !/AVERAGEIFS/i.test(formula)) {
+    var endIso = isoOfCol(m[2].toUpperCase()), selfRef = false;
+    if (!endIso && colNumber_(m[2].toUpperCase()) > cols[cols.length - 1].col) { endIso = cols[cols.length - 1].iso; selfRef = true; }   // the range runs into the AVERAGE cell itself
+    return { start: isoOfCol(m[1].toUpperCase()), end: endIso, exclude: [], selfRef: selfRef };
+  }
+  if (/AVERAGEIFS/i.test(formula)) {
+    var pad = function (x) { return (x < 10 ? '0' : '') + x; };
+    var iso = function (a) { return a[1] + '-' + pad(+a[2]) + '-' + pad(+a[3]); };
+    var ge = /">="&DATE\((\d+),(\d+),(\d+)\)/.exec(formula), le = /"<="&DATE\((\d+),(\d+),(\d+)\)/.exec(formula), ex = [], re = /"<>"&DATE\((\d+),(\d+),(\d+)\)/g, x;
+    while ((x = re.exec(formula))) ex.push(iso(x));
+    if (ge && le) return { start: iso(ge), end: iso(le), exclude: ex.sort() };
+  }
+  return null;
+}
+
+function getAverages_() {
+  var out = [];
+  AVG_TARGETS.forEach(function (t) {
+    var inf = avgInfo_(t);
+    if (!inf) { out.push({ key: t.key, label: t.label, sheet: t.sheet, found: false }); return; }
+    var groups = {}, unknown = 0, selfRef = 0;
+    inf.rows.forEach(function (r) {
+      var w = parseWindow_(r.formula, inf.cols);
+      if (!w || !w.start || !w.end) { unknown++; return; }
+      var k = w.start + '|' + w.end + '|' + w.exclude.join(',');
+      if (!groups[k]) groups[k] = { start: w.start, end: w.end, exclude: w.exclude, rows: 0 };
+      groups[k].rows++;
+      if (w.selfRef) selfRef++;
+    });
+    var list = Object.keys(groups).map(function (k) { return groups[k]; }).sort(function (a, b) { return b.rows - a.rows; });
+    out.push({ key: t.key, label: t.label, sheet: t.sheet, found: true, rows: inf.rows.length, avgColumn: colLetter_(inf.avgCol),
+      firstDate: inf.cols[0].iso, lastDate: inf.cols[inf.cols.length - 1].iso, windows: list, unknownRows: unknown, selfRefRows: selfRef, mixed: list.length > 1 || unknown > 0 });
+  });
+  return { targets: out };
+}
+
+function avgFormula_(inf, row, start, end, exclude) {
+  var use = inf.cols.filter(function (d) { return d.iso >= start && d.iso <= end; });
+  if (!use.length) throw new Error('No date columns fall between ' + start + ' and ' + end + ' in ' + inf.sheet.getName() + '.');
+  var first = colLetter_(use[0].col), lastL = colLetter_(use[use.length - 1].col);
+  if (!exclude.length) return '=AVERAGE(' + first + row + ':' + lastL + row + ')';
+  var allFirst = colLetter_(inf.cols[0].col), allLast = colLetter_(inf.cols[inf.cols.length - 1].col);
+  var hdr = '$' + allFirst + '$1:$' + allLast + '$1', dt = function (iso) { var p = iso.split('-'); return 'DATE(' + (+p[0]) + ',' + (+p[1]) + ',' + (+p[2]) + ')'; };
+  var f = '=AVERAGEIFS(' + allFirst + row + ':' + allLast + row + ',' + hdr + ',">="&' + dt(start) + ',' + hdr + ',"<="&' + dt(end);
+  exclude.forEach(function (x) { f += ',' + hdr + ',"<>"&' + dt(x); });
+  return f + ')';
+}
+
+function setAverage_(req) {
+  var start = String(req.start || ''), end = String(req.end || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end)) throw new Error('A start date and an end date are required.');
+  if (start > end) throw new Error('The start date must not be after the end date.');
+  var exclude = (req.exclude || []).map(String).filter(function (x) { return /^\d{4}-\d{2}-\d{2}$/.test(x) && x >= start && x <= end; });
+  exclude = exclude.filter(function (x, i) { return exclude.indexOf(x) === i; }).sort();
+  var keys = req.targets && req.targets.length ? req.targets : AVG_TARGETS.map(function (t) { return t.key; });
+  var changes = [], notes = [];
+  AVG_TARGETS.forEach(function (t) {
+    if (keys.indexOf(t.key) < 0) return;
+    var inf = avgInfo_(t);
+    if (!inf) { notes.push(t.label + ': no AVERAGE column was found, skipped.'); return; }
+    var lastCol = inf.cols[inf.cols.length - 1].iso;
+    if (end > lastCol) notes.push(t.label + ': the sheet ends on ' + lastCol + ', so the average stops there.');
+    inf.rows.forEach(function (r) {
+      changes.push({ sheet: t.sheet, row: r.row, col: inf.avgCol, value: avgFormula_(inf, r.row, start, end, exclude), label: t.label + ' row ' + r.row, formula: true });
+    });
+  });
+  if (!changes.length) throw new Error('No average formulas were found to change.');
+  var info = describeChanges_(changes);
+  var real = info.filter(function (c) { return c.oldFormula !== c.value; });
+  var res = { dryRun: !!req.dryRun, start: start, end: end, exclude: exclude, count: real.length, total: info.length, notes: notes,
+    sample: real.slice(0, 6).map(function (c) { return { sheet: c.sheet, label: c.label, old: c.oldFormula, value: c.value }; }) };
+  if (req.dryRun) return res;
+  if (!real.length) { res.note = 'Every average already counts exactly these days, so nothing was written.'; return res; }
+  res.logId = applyChanges_(real, 'average window', '', String(req.note || ''));
+  return res;
+}
+
+/* =========================== master database + design =========================== */
+
+function splitRegent_(s) {
+  var m = /^RGT\.?\s+(.*?)(?:\s*&\s*ASSOCIATE\s+(.*))?$/i.exec(txt_(s));
+  return m ? { regent: txt_(m[1]), assoc: txt_(m[2]) } : { regent: txt_(s), assoc: '' };
+}
+function stripP_(s, re) { return txt_(s).replace(re, '').trim(); }
+/** 0..1 how alike two people's names are (word order and small typos do not matter). */
+function nameScore_(a, b) {
+  var tok = function (x) { return norm_(x).replace(/[^a-z ]+/g, ' ').split(' ').filter(function (w) { return w.length > 0; }); };
+  var lev = function (x, y) { var d = [], i, j; for (i = 0; i <= x.length; i++) { d[i] = [i]; } for (j = 1; j <= y.length; j++) d[0][j] = j;
+    for (i = 1; i <= x.length; i++) for (j = 1; j <= y.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (x.charAt(i - 1) === y.charAt(j - 1) ? 0 : 1)); return d[x.length][y.length]; };
+  var A = tok(a), B = tok(b), used = {}, hit = 0;
+  if (!A.length || !B.length) return 0;
+  A.forEach(function (w) { for (var i = 0; i < B.length; i++) { if (used[i]) continue; if (B[i] === w || (w.length >= 5 && B[i].length >= 5 && lev(w, B[i]) <= 2)) { used[i] = 1; hit++; return; } } });
+  return hit / Math.max(A.length, B.length);
+}
+function nm_(s) { return norm_(s).replace(/[.,]/g, '').replace(/\s+/g, ' ').trim(); }
+
+function masterMissing_() {
+  var m = masterSs_(), miss = [];
+  Object.keys(MASTER_TABS).forEach(function (n) { if (!m.getSheetByName(n)) miss.push(n); });
+  return miss;
+}
+
+function readMaster_() {
+  var m = masterSs_(), out = { tribes: [], hubs: [], colonies: [] };
+  var rd = function (name, w) { var s = m.getSheetByName(name), last = s.getLastRow(); return last < 2 ? [] : s.getRange(2, 1, last - 1, w).getValues(); };
+  rd('M_TRIBES', 5).forEach(function (v, i) { var n = digits_(v[0]); if (n === null) return; out.tribes.push({ row: i + 2, n: n, hub: digits_(v[1]), chief: txt_(v[2]), leader: txt_(v[3]), deputy: txt_(v[4]) }); });
+  rd('M_HUBS', 5).forEach(function (v, i) { var n = digits_(v[0]); if (n === null) return; out.hubs.push({ row: i + 2, n: n, veteran: txt_(v[1]), colony: txt_(v[2]), box: digits_(v[3]), role: /assist/i.test(txt_(v[4])) ? 'ASSISTANT' : 'VETERAN' }); });
+  rd('M_COLONIES', 5).forEach(function (v, i) { if (!txt_(v[0])) return; out.colonies.push({ row: i + 2, name: txt_(v[0]), regent: txt_(v[1]), deputy: txt_(v[2]), associate: txt_(v[3]), admin: txt_(v[4]) }); });
+  return out;
+}
+
+/* ---- reading the COLONY DESIGN sheet: find the boxes by what they say, not where they sit ---- */
+function scanDesign_() {
+  var s = ss_().getSheetByName(SHEET.design);
+  if (!s) return null;
+  var vals = s.getDataRange().getValues(), H = vals.length;
+  var hubs = [], tribes = [], cols = [], r, c, t, m;
+  for (r = 0; r < H; r++) for (c = 0; c < vals[r].length; c++) {
+    t = txt_(vals[r][c]);
+    if (!t) continue;
+    if ((m = /^HUB\s*0*(\d+)$/i.exec(t))) hubs.push({ n: parseInt(m[1], 10), r: r, c: c });
+    else if ((m = /^TRIBE\s*0*(\d+)$/i.exec(t))) tribes.push({ n: parseInt(m[1], 10), r: r, c: c });
+    else if ((m = /^(.+?)\s+COLONY$/i.exec(t))) cols.push({ name: m[1].toUpperCase().trim(), r: r, c: c });
+  }
+  var at = function (rr, cc) { return (rr >= 0 && rr < H && cc >= 0 && cc < vals[rr].length) ? vals[rr][cc] : null; };
+  var latest = function (list, col, row) { var best = null; list.forEach(function (x) { if (x.c === col && x.r <= row && (!best || x.r > best.r)) best = x; }); return best; };
+  var firstBelow = function (r0, c0, stopList, re) {
+    var stop = H; stopList.forEach(function (x) { if (x.c === c0 - 1 && x.r > r0 && x.r < stop) stop = x.r; });
+    for (var rr = r0 + 1; rr < Math.min(stop, r0 + 16); rr++) { var v = at(rr, c0); if (v !== null && re.test(txt_(v))) return { r: rr + 1, c: c0 + 1, text: String(v) }; }
+    return null;
+  };
+  var out = { tribes: {}, hubs: [], colonies: [] };
+  cols.forEach(function (co) { out.colonies.push({ name: co.name, r: co.r, c: co.c, regent: { r: co.r + 1, c: co.c + 2, text: String(at(co.r, co.c + 1) === null ? '' : at(co.r, co.c + 1)) }, deputy: firstBelow(co.r, co.c + 1, cols, /^DEPUTY\s+REGENT/i), hubKeys: [] }); });
+  hubs.forEach(function (h) {
+    var co = latest(cols, h.c - DESIGN_OFF.hubFromColony, h.r);
+    var o = { n: h.n, r: h.r, c: h.c, key: h.r + ',' + h.c, vet: { r: h.r + 1, c: h.c + 2, text: String(at(h.r, h.c + 1) === null ? '' : at(h.r, h.c + 1)) },
+      assistant: firstBelow(h.r, h.c + 1, hubs, /^ASSISTANT\s+VET/i), colony: co ? co.name : null, tribes: [] };
+    out.hubs.push(o);
+  });
+  tribes.forEach(function (tr) {
+    var hb = latest(hubs, tr.c - DESIGN_OFF.tribeFromHub, tr.r);
+    var below = at(tr.r + 1, tr.c), belowIsBox = below !== null && /^(TRIBE|HUB)\s*\d+$/i.test(txt_(below));
+    var chiefV = at(tr.r, tr.c + 1), ldrV = belowIsBox ? null : at(tr.r + 1, tr.c + 1);
+    out.tribes[tr.n] = { n: tr.n, r: tr.r + 1, c: tr.c + 1,
+      chief: { r: tr.r + 1, c: tr.c + 2, text: String(chiefV === null ? '' : chiefV) },
+      leader: belowIsBox ? null : { r: tr.r + 2, c: tr.c + 2, text: String(ldrV === null ? '' : ldrV) },
+      hubKey: hb ? hb.r + ',' + hb.c : null };
+    if (hb) out.hubs.forEach(function (o) { if (o.key === hb.r + ',' + hb.c) o.tribes.push(tr.n); });
+  });
+  return out;
+}
+
+/** Rebuilds a design cell: keeps its own prefix style ("LDR." / "VET" / "REGENT"), spacing and line breaks. */
+function restyle_(existing, prefixRe, defPrefix, name) {
+  var e = String(existing || ''), lead = /^\s*/.exec(e)[0], core = e.slice(lead.length), trail = /\s*$/.exec(core)[0];
+  core = core.slice(0, core.length - trail.length);
+  var m = prefixRe.exec(core), emptyCell = !core.trim() || core.trim() === '-', prefix = m ? m[0] : (emptyCell ? defPrefix : '');
+  if (prefix && !/[\s.]$/.test(prefix)) prefix += ' ';
+  if (emptyCell) { lead = ''; trail = ''; }
+  return { text: lead + prefix + name + trail, body: nm_(core.replace(prefixRe, '')) };
+}
+
+/** A design cell we are allowed to rewrite: empty, "-", or a person's name. Never another box label. */
+var NAME_BOX = { test: function (t) { return !/^(TRIBE|HUB|REGENT|DEPUTY|ASSISTANT|VET)\b/i.test(t) && !/COLONY$/i.test(t) && !/^\d+$/.test(t); } };
+
+function planDesign_(M, D) {
+  var changes = [], skipped = [], layout = [], drift = [];
+  var mt = {}, mh = {}, mc = {};
+  M.tribes.forEach(function (x) { mt[x.n] = x; }); M.hubs.forEach(function (x) { mh[x.n] = x; }); M.colonies.forEach(function (x) { mc[nm_(x.name)] = x; });
+  var put = function (cell, prefixRe, defPrefix, name, label, kind, id, field, allowRe) {
+    if (!cell) return;
+    if (allowRe && cell.text.trim() && cell.text.trim() !== '-' && !allowRe.test(cell.text.trim())) { skipped.push(label + ': the design cell holds "' + txt_(cell.text).slice(0, 30) + '", which is not a name box, so it was left alone.'); return; }
+    var want = name ? name.toUpperCase() : '', ex = txt_(cell.text), r;
+    if (!want) {
+      var blank = (kind === 'tribe' && field === 'chief') ? '-' : '';
+      if (!ex || ex === blank || ex === '-') return;
+      r = { text: blank };
+    } else {
+      r = restyle_(cell.text, prefixRe, defPrefix, want);
+      if (r.body === nm_(want)) return;
+    }
+    changes.push({ sheet: SHEET.design, row: cell.r, col: cell.c, value: r.text, label: label });
+    drift.push({ kind: kind, id: id, field: field, master: want, other: txt_(cell.text) });
+  };
+  Object.keys(D.tribes).forEach(function (k) {
+    var d = D.tribes[k], t = mt[d.n];
+    if (!t) { layout.push('Tribe ' + d.n + ' is in the design but not in the master database.'); return; }
+    put(d.chief, /^CHIEF\s*/i, 'CHIEF ', t.chief, 'Tribe ' + d.n + ' chief', 'tribe', d.n, 'chief', NAME_BOX);
+    put(d.leader, /^LDR\s*\.?\s*/i, 'LDR. ', t.leader, 'Tribe ' + d.n + ' leader', 'tribe', d.n, 'leader', NAME_BOX);
+  });
+  var noBox = []; M.tribes.forEach(function (t) { if (!D.tribes[t.n]) noBox.push(t.n); });
+  if (noBox.length) layout.push('These tribes are in the master database but have no box in the design: ' + noBox.join(', ') + '.');
+  var byBox = {};
+  M.hubs.forEach(function (h) { if (h.box) { (byBox[h.box] = byBox[h.box] || []).push(h); } });
+  D.hubs.forEach(function (dh) {
+    var linked = byBox[dh.n] || [], vh = null, ah = null;
+    linked.forEach(function (h) { if (h.role === 'ASSISTANT') { if (!ah) ah = h; } else if (!vh) vh = h; });
+    if (!vh && !ah) { layout.push('Design box "HUB ' + dh.n + '" (veteran: ' + txt_(dh.vet.text).replace(/^VET(ERAN)?\.?\s*/i, '') + ') is not linked to any hub in the master. Set its DESIGN BOX in the Hubs table.'); return; }
+    if (vh) put(dh.vet, /^VET(ERAN)?\.?\s*/i, 'VET ', vh.veteran, 'Design hub ' + dh.n + ' veteran', 'hub', vh.n, 'veteran', /^VET/i);
+    if (dh.assistant && ah) put(dh.assistant, /^ASSISTANT\s+VET(ERAN)?\.?\s*/i, 'ASSISTANT VET. ', ah.veteran, 'Design hub ' + dh.n + ' assistant veteran', 'hub', ah.n, 'veteran', /^ASSISTANT/i);
+    else if (dh.assistant && !ah) layout.push('Design box "HUB ' + dh.n + '" has an assistant-veteran line but no hub in the master is linked to it as ASSISTANT.');
+    else if (!dh.assistant && ah) layout.push('Hub ' + ah.n + ' (' + ah.veteran + ') is marked ASSISTANT for design box HUB ' + dh.n + ', but that box has no assistant line.');
+    var hc = (vh || ah).colony;
+    if (dh.colony && hc && nm_(dh.colony) !== nm_(hc)) layout.push('Design box HUB ' + dh.n + ' sits under ' + dh.colony + ' COLONY but the master puts its hub in ' + hc + '. Move the box in the design by hand.');
+    dh.tribes.forEach(function (n) {
+      var t = mt[n], th = t && t.hub ? mh[t.hub] : null;
+      if (th && th.box && th.box !== dh.n) layout.push('Tribe ' + n + ' sits in design box HUB ' + dh.n + ' but the master puts it in Hub ' + th.n + ' (design box HUB ' + th.box + '). Move the box in the design by hand.');
+    });
+  });
+  D.colonies.forEach(function (dc) {
+    var c = mc[nm_(dc.name)];
+    if (!c) { layout.push('The design has "' + dc.name + ' COLONY" which is not in the master database.'); return; }
+    put(dc.regent, /^REGENT\s*/i, 'REGENT ', c.regent, c.name + ' regent', 'colony', c.name, 'regent', /^REGENT\b/i);
+    if (dc.deputy) put(dc.deputy, /^DEPUTY\s+REGENT\s*/i, 'DEPUTY REGENT ', c.deputy, c.name + ' deputy regent', 'colony', c.name, 'deputy');
+  });
+  return { changes: lastPerCell_(changes), skipped: skipped, layout: layout, drift: drift };
+}
+
+function syncDesign_(req) {
+  if (masterMissing_().length) throw new Error('The master database has not been created yet.');
+  var D = scanDesign_();
+  if (!D) throw new Error('This workbook has no "' + SHEET.design + '" sheet.');
+  var plan = planDesign_(readMaster_(), D);
+  var info = describeChanges_(plan.changes);
+  var real = info.filter(function (c) { return String(c.oldValue) !== String(c.value); });
+  var res = { dryRun: !!req.dryRun, count: real.length, changes: real.map(function (c) { return { sheet: c.sheet, label: c.label, old: String(c.oldValue).replace(/\s+/g, ' ').trim(), value: String(c.value).replace(/\s+/g, ' ').trim() }; }), skipped: plan.skipped, layout: plan.layout };
+  if (req.dryRun) return res;
+  if (!real.length) { res.note = 'The design already matches the master database.'; return res; }
+  res.logId = applyChanges_(real, 'design sync', '', String(req.note || 'names copied from the master database'));
+  return res;
+}
+
+/* ---- master <-> workbook ---- */
+function workbookDiff_(M) {
+  var tribes = tribeRows_(), hubs = hubRows_(), colonies = colonyRows_();
+  var hm = mapRows_(SHEET.hubMap, 3).map(function (r) { return { hub: digits_(r.a), tribe: digits_(r.c) }; }).filter(function (x) { return x.hub && x.tribe; });
+  var cm = mapRows_(SHEET.colonyMap, 3).map(function (r) { return { hub: digits_(r.a), colony: r.b }; }).filter(function (x) { return x.hub && x.colony; });
+  var t2h = {}, h2c = {}, edits = [], skipped = [], drift = [];
+  hm.forEach(function (x) { t2h[x.tribe] = x.hub; }); cm.forEach(function (x) { h2c[x.hub] = x.colony; });
+  var tb = {}, hb = {}, cb = {};
+  tribes.forEach(function (t) { tb[t.n] = t; }); hubs.forEach(function (h) { hb[h.n] = h; }); colonies.forEach(function (c) { cb[nm_(c.name)] = c; });
+  M.tribes.forEach(function (m) {
+    var t = tb[m.n];
+    if (!t) { skipped.push('Tribe ' + m.n + ' is in the master but not in MAINDASH.'); return; }
+    var wDep = stripP_(t.deputy, /^DPT\.?\s+/i);
+    if (nm_(m.deputy) !== nm_(wDep)) {
+      drift.push({ kind: 'tribe', id: m.n, field: 'deputy', master: m.deputy, other: wDep });
+      if (!t.deputyRow) skipped.push('Tribe ' + m.n + ': no free row for a deputy in MAINDASH.'); else edits.push({ type: 'deputy', tribe: m.n, name: m.deputy });
+    }
+    var wChief = stripP_(t.chief, /^CHIEF\s+/i);
+    if (nm_(m.chief) !== nm_(wChief)) drift.push({ kind: 'tribe', id: m.n, field: 'chief', master: m.chief, other: wChief, optional: true });
+    if (m.hub && t2h[m.n] !== m.hub) { drift.push({ kind: 'tribe', id: m.n, field: 'hub', master: m.hub, other: t2h[m.n] || '' }); if (hb[m.hub]) edits.push({ type: 'hubMap', tribe: m.n, hub: m.hub }); else skipped.push('Tribe ' + m.n + ': Hub ' + m.hub + ' is not in HUB DB.'); }
+  });
+  M.hubs.forEach(function (m) {
+    var h = hb[m.n];
+    if (!h) { skipped.push('Hub ' + m.n + ' is in the master but not in HUB DB.'); return; }
+    var wv = stripP_(h.veteran, /^VETERAN\s+/i);
+    if (m.veteran && nm_(m.veteran) !== nm_(wv)) { drift.push({ kind: 'hub', id: m.n, field: 'veteran', master: m.veteran, other: wv }); edits.push({ type: 'veteran', hub: m.n, name: m.veteran }); }
+    if (m.colony && nm_(h2c[m.n] || '') !== nm_(m.colony)) { drift.push({ kind: 'hub', id: m.n, field: 'colony', master: m.colony, other: h2c[m.n] || '' }); if (cb[nm_(m.colony)]) edits.push({ type: 'colonyMap', hub: m.n, colony: m.colony }); else skipped.push('Hub ' + m.n + ': colony "' + m.colony + '" is not in COLONY DASH.'); }
+  });
+  M.colonies.forEach(function (m) {
+    var c = cb[nm_(m.name)];
+    if (!c) { skipped.push('Colony ' + m.name + ' is in the master but not in COLONY DASH.'); return; }
+    var sp = splitRegent_(c.regent);
+    if (m.regent && (nm_(m.regent) !== nm_(sp.regent) || nm_(m.associate) !== nm_(sp.assoc))) {
+      drift.push({ kind: 'colony', id: m.name, field: 'regent', master: m.regent + (m.associate ? ' & ' + m.associate : ''), other: sp.regent + (sp.assoc ? ' & ' + sp.assoc : '') });
+      edits.push({ type: 'regent', colony: m.name, regent: m.regent, associate: m.associate });
+    }
+    var wa = stripP_(c.admin || '', /^ADMIN\s+/i);
+    if (m.admin && c.adminRow && nm_(m.admin) !== nm_(wa)) { drift.push({ kind: 'colony', id: m.name, field: 'admin', master: m.admin, other: wa }); edits.push({ type: 'admin', colony: m.name, name: m.admin }); }
+  });
+  return { edits: edits, skipped: skipped, drift: drift };
+}
+
+function syncWorkbook_(req) {
+  if (masterMissing_().length) throw new Error('The master database has not been created yet.');
+  var M = readMaster_(), d = workbookDiff_(M), edits = d.edits.slice();
+  if (req.includeChief) {
+    var tribes = tribeRows_(), tb = {}; tribes.forEach(function (t) { tb[t.n] = t; });
+    M.tribes.forEach(function (m) { if (m.chief && tb[m.n] && nm_(m.chief) !== nm_(stripP_(tb[m.n].chief, /^CHIEF\s+/i))) edits.push({ type: 'chief', tribe: m.n, name: m.chief }); });
+  }
+  if (!edits.length) return { dryRun: !!req.dryRun, count: 0, changes: [], skipped: d.skipped, note: 'The workbook already matches the master database.' };
+  var res = edit_({ edits: edits, dryRun: req.dryRun, note: String(req.note || 'synced from the master database') });
+  res.skipped = d.skipped;
+  return res;
+}
+
+/* ---- the master itself ---- */
+function getMaster_() {
+  var miss = masterMissing_();
+  var ext = !!PropertiesService.getScriptProperties().getProperty('MASTER_ID');
+  if (miss.length) return { ready: false, external: ext, missing: miss, designFound: !!ss_().getSheetByName(SHEET.design) };
+  var M = readMaster_(), wd = null, dd = null, layout = [], skipped = [];
+  try { wd = workbookDiff_(M); } catch (e) { wd = { drift: [], skipped: ['Could not compare with the workbook: ' + e.message] }; }
+  try { var D = scanDesign_(); if (D) { var p = planDesign_(M, D); dd = p.drift; layout = p.layout; skipped = p.skipped; } } catch (e2) { skipped.push('Could not read the design: ' + e2.message); }
+  var boxes = [];
+  try { var D2 = scanDesign_(); if (D2) D2.hubs.forEach(function (h) { boxes.push({ n: h.n, veteran: stripP_(h.vet.text, /^VET(ERAN)?\.?\s*/i), assistant: h.assistant ? stripP_(h.assistant.text, /^ASSISTANT\s+VET(ERAN)?\.?\s*/i) : '', colony: h.colony || '', tribes: h.tribes }); }); } catch (e3) { boxes = []; }
+  return { ready: true, external: ext, name: masterSs_().getName(), boxes: boxes, tribes: M.tribes, hubs: M.hubs, colonies: M.colonies,
+    drift: { workbook: wd.drift, design: dd, designFound: dd !== null }, layout: layout, notes: wd.skipped.concat(skipped) };
+}
+
+function masterInit_(req) {
+  var m = masterSs_(), existing = false, miss = masterMissing_();
+  if (!miss.length) { var M0 = readMaster_(); existing = M0.tribes.length + M0.hubs.length + M0.colonies.length > 0; }
+  if (existing && !req.overwrite) throw new Error('The master database already has data. Tick "replace" to rebuild it from the workbook (the current master is not backed up).');
+  var tribes = tribeRows_(), hubs = hubRows_(), colonies = colonyRows_();
+  var hm = mapRows_(SHEET.hubMap, 3).map(function (r) { return { hub: digits_(r.a), tribe: digits_(r.c) }; }).filter(function (x) { return x.hub && x.tribe; });
+  var cm = mapRows_(SHEET.colonyMap, 3).map(function (r) { return { hub: digits_(r.a), colony: r.b }; }).filter(function (x) { return x.hub && x.colony; });
+  var t2h = {}, h2c = {}; hm.forEach(function (x) { t2h[x.tribe] = x.hub; }); cm.forEach(function (x) { h2c[x.hub] = x.colony; });
+  var D = null; try { D = scanDesign_(); } catch (e) { D = null; }
+  var mt = {}; tribes.forEach(function (t) { mt[t.n] = { hub: t2h[t.n] || null }; });
+  var tRows = tribes.map(function (t) {
+    var chief = stripP_(t.chief, /^CHIEF\s+/i), leader = '', d = D && D.tribes[t.n];
+    if (d) {
+      var dc = txt_(d.chief.text); if (dc && dc !== '-') chief = stripP_(dc, /^CHIEF\s*/i); else if (dc === '-') chief = '';
+      if (d.leader) { leader = stripP_(d.leader.text, /^LDR\s*\.?\s*/i); if (leader === '-') leader = ''; }
+    }
+    return [t.n, t2h[t.n] || '', chief, leader, stripP_(t.deputy, /^DPT\.?\s+/i)];
+  });
+  var mapVet = {}; mapRows_(SHEET.hubMap, 3).forEach(function (r) { var hn = digits_(r.a); if (hn && r.b && !mapVet[hn]) mapVet[hn] = r.b; });
+  var hubRowsOut = hubs.map(function (h) { return [h.n, stripP_(h.veteran, /^VETERAN\s+/i), h2c[h.n] || '', '', '']; });
+  var boxMatches = [];
+  if (D) {
+    var used = {};
+    var link = function (name, box, role) {
+      var best = null, bestS = 0, tie = false;
+      hubRowsOut.forEach(function (r, i) { if (used[i]) return; var sc = Math.max(nameScore_(name, r[1]), nameScore_(name, mapVet[r[0]] || '')); if (sc > bestS) { best = i; bestS = sc; tie = false; } else if (sc === bestS && sc > 0) tie = true; });
+      if (best === null || bestS < 0.5 || tie) { boxMatches.push({ box: box, name: name, role: role, matched: false }); return; }
+      used[best] = true; hubRowsOut[best][1] = name; hubRowsOut[best][3] = box; hubRowsOut[best][4] = role;
+      boxMatches.push({ box: box, name: name, role: role, matched: true, hub: hubRowsOut[best][0] });
+    };
+    D.hubs.forEach(function (dh) {
+      var v = stripP_(dh.vet.text, /^VET(ERAN)?\.?\s*/i); if (v) link(v, dh.n, 'VETERAN');
+      if (dh.assistant) link(stripP_(dh.assistant.text, /^ASSISTANT\s+VET(ERAN)?\.?\s*/i), dh.n, 'ASSISTANT');
+    });
+  }
+  var hRows = hubRowsOut;
+  var dRegent = {}, dRegentMain = {};
+  if (D) D.colonies.forEach(function (dc) { if (dc.deputy) dRegent[nm_(dc.name)] = stripP_(dc.deputy.text, /^DEPUTY\s+REGENT\s*/i); var rg = stripP_(dc.regent.text, /^REGENT\s*/i); if (rg) dRegentMain[nm_(dc.name)] = rg; });
+  var cRows = colonies.map(function (c) { var sp = splitRegent_(c.regent); return [c.name, (dRegentMain[nm_(c.name)] || sp.regent), dRegent[nm_(c.name)] || '', sp.assoc, stripP_(c.admin || '', /^ADMIN\s+/i)]; });
+  [tRows, hRows, cRows].forEach(function (rows) { rows.forEach(function (r) { for (var i = 0; i < r.length; i++) if (typeof r[i] === 'string' && /^[=+@]/.test(r[i])) r[i] = "'" + r[i]; }); });
+  var res = { dryRun: !!req.dryRun, tribes: tRows.length, hubs: hRows.length, colonies: cRows.length, fromDesign: !!D, boxMatches: boxMatches, external: !!PropertiesService.getScriptProperties().getProperty('MASTER_ID'), master: m.getName() };
+  if (req.dryRun) return res;
+  masterTabsCreate_();
+  var put = function (name, rows, width) {
+    var s = m.getSheetByName(name), last = s.getLastRow();
+    if (last > 1) s.getRange(2, 1, last - 1, Math.max(width, s.getLastColumn())).clearContent();
+    if (rows.length) s.getRange(2, 1, rows.length, width).setValues(rows);
+  };
+  put('M_TRIBES', tRows, 5); put('M_HUBS', hRows, 5); put('M_COLONIES', cRows, 5);
+  SpreadsheetApp.flush();
+  return res;
+}
+
+function masterTabsCreate_() {
+  var m = masterSs_();
+  Object.keys(MASTER_TABS).forEach(function (n) {
+    if (m.getSheetByName(n)) return;
+    var s = m.insertSheet(n);
+    s.getRange(1, 1, 1, MASTER_TABS[n].length).setValues([MASTER_TABS[n]]).setFontWeight('bold');
+    s.setFrozenRows(1);
+  });
+}
+
+function masterEdit_(req) {
+  if (masterMissing_().length) throw new Error('The master database has not been created yet.');
+  var edits = req.edits || [];
+  if (!edits.length) throw new Error('Nothing to change.');
+  var M = readMaster_(), changes = [];
+  var T = '@M:M_TRIBES', H = '@M:M_HUBS', C = '@M:M_COLONIES';
+  var hubExists = function (n) { return M.hubs.some(function (h) { return h.n === n; }); };
+  var colExists = function (n) { return M.colonies.some(function (c) { return nm_(c.name) === nm_(n); }); };
+  var nextRow = function (list, pend, sheet) { var mx = 1; list.forEach(function (x) { if (x.row > mx) mx = x.row; }); pend.forEach(function (c) { if (c.sheet === sheet && c.row > mx) mx = c.row; }); return mx + 1; };
+  var colOf = { M_TRIBES: { hub: 2, chief: 3, leader: 4, deputy: 5 }, M_HUBS: { veteran: 2, colony: 3, box: 4, role: 5 }, M_COLONIES: { regent: 2, deputy: 3, associate: 4, admin: 5 } };
+  var cleanRe = { chief: /^CHIEF\s+/i, leader: /^LDR\s*\.?\s*/i, deputy: /^DPT\.?\s+/i, veteran: /^VET(ERAN)?\.?\s+/i, assistant: /^ASSISTANT\s+VET(ERAN)?\.?\s+/i, regent: /^(RGT|REGENT)\.?\s+/i, admin: /^ADMIN\s+/i, associate: /^ASSOCIATE\s+/i };
+  edits.forEach(function (e) {
+    var v;
+    if (e.type === 'mAddTribe') {
+      var n = parseInt(e.n, 10), h = parseInt(e.hub, 10);
+      if (!(n > 0)) throw new Error('A tribe number is required.');
+      if (M.tribes.some(function (t) { return t.n === n; })) throw new Error('Tribe ' + n + ' is already in the master database.');
+      if (!hubExists(h)) throw new Error('Hub ' + h + ' is not in the master database.');
+      var r = nextRow(M.tribes, changes, T);
+      changes.push(ch_(T, r, 1, n, 'Add tribe ' + n)); changes.push(ch_(T, r, 2, h, 'Tribe ' + n + ' hub'));
+      M.tribes.push({ row: r, n: n, hub: h, chief: '', leader: '', deputy: '' });
+    } else if (e.type === 'mTribe') {
+      var t = findBy_(M.tribes, function (x) { return x.n === parseInt(e.n, 10); }, 'tribe ' + e.n);
+      if (e.field === 'hub') { var hn = parseInt(e.value, 10); if (!hubExists(hn)) throw new Error('Hub ' + e.value + ' is not in the master database.'); changes.push(ch_(T, t.row, 2, hn, 'Tribe ' + t.n + ' hub')); }
+      else if (colOf.M_TRIBES[e.field]) { v = safe_(e.value).replace(cleanRe[e.field], '').toUpperCase(); changes.push(ch_(T, t.row, colOf.M_TRIBES[e.field], v, 'Tribe ' + t.n + ' ' + e.field)); }
+      else throw new Error('Unknown tribe field: ' + e.field);
+    } else if (e.type === 'mHub') {
+      var hh = findBy_(M.hubs, function (x) { return x.n === parseInt(e.n, 10); }, 'hub ' + e.n);
+      if (e.field === 'colony') { if (e.value && !colExists(e.value)) throw new Error('Colony "' + e.value + '" is not in the master database.'); var cc = e.value ? findBy_(M.colonies, function (x) { return nm_(x.name) === nm_(e.value); }, 'colony').name : ''; changes.push(ch_(H, hh.row, 3, cc, 'Hub ' + hh.n + ' colony')); }
+      else if (e.field === 'box') { var bx = String(e.value).trim() === '' ? '' : parseInt(e.value, 10); if (bx !== '' && !(bx > 0)) throw new Error('A design box must be a number like 19, or empty.'); changes.push(ch_(H, hh.row, 4, bx, 'Hub ' + hh.n + ' design box')); }
+      else if (e.field === 'role') { var ro = /assist/i.test(e.value) ? 'ASSISTANT' : (String(e.value).trim() ? 'VETERAN' : ''); changes.push(ch_(H, hh.row, 5, ro, 'Hub ' + hh.n + ' design role')); }
+      else if (e.field === 'veteran') { v = safe_(e.value).replace(cleanRe.veteran, '').toUpperCase(); changes.push(ch_(H, hh.row, 2, v, 'Hub ' + hh.n + ' veteran')); }
+      else throw new Error('Unknown hub field: ' + e.field);
+    } else if (e.type === 'mColony') {
+      var co = findBy_(M.colonies, function (x) { return nm_(x.name) === nm_(e.name); }, 'colony ' + e.name);
+      if (!colOf.M_COLONIES[e.field]) throw new Error('Unknown colony field: ' + e.field);
+      v = safe_(e.value).replace(cleanRe[e.field] || /^$/, '').toUpperCase();
+      changes.push(ch_(C, co.row, colOf.M_COLONIES[e.field], v, co.name + ' ' + e.field));
+    } else throw new Error('Unknown master edit: ' + e.type);
+  });
+  changes = lastPerCell_(changes);
+  var info = describeChanges_(changes);
+  var real = info.filter(function (c) { return String(c.oldValue) !== String(c.value); });
+  var res = { dryRun: !!req.dryRun, count: real.length, changes: real.map(function (c) { return { sheet: c.sheet.replace('@M:', 'master: '), label: c.label, old: c.oldValue, value: c.value }; }) };
+  if (req.dryRun) return res;
+  if (!real.length) { res.note = 'Nothing was different, so nothing was written.'; return res; }
+  res.logId = applyChanges_(real, 'master edit', '', String(req.note || ''));
+  return res;
+}
+
+/* ===================== the single place that writes cells ===================== */
+
+/* Reads the current value / formula of every target cell. Cells are read one
+   COLUMN at a time (two calls per column) because that is far faster than one
+   call per cell. */
+function describeChanges_(changes) {
+  var groups = {};
+  changes.forEach(function (c) {
+    var k = c.sheet + '|' + c.col;
+    if (!groups[k]) groups[k] = { sheet: c.sheet, col: c.col, maxRow: 0 };
+    if (c.row > groups[k].maxRow) groups[k].maxRow = c.row;
+  });
+  Object.keys(groups).forEach(function (k) {
+    var g = groups[k], rng = sheet_(g.sheet).getRange(1, g.col, g.maxRow, 1);
+    g.values = rng.getValues(); g.formulas = rng.getFormulas();
+  });
+  return changes.map(function (c) {
+    var g = groups[c.sheet + '|' + c.col];
+    var v = g.values[c.row - 1][0], f = g.formulas[c.row - 1][0];
+    return { sheet: c.sheet, row: c.row, col: c.col, value: c.value, label: c.label, formula: !!c.formula,
+      oldValue: (v instanceof Date) ? iso_(v) : (v === null || v === undefined ? '' : v), oldFormula: f || '' };
+  });
+}
+
+function applyChanges_(changes, action, dateIso, note) {
+  changes.forEach(function (c) {
+    if (!c.formula && typeof c.value === 'string' && /^[=+@]/.test(c.value)) throw new Error('Refusing to write "' + c.value.slice(0, 20) + '": text may not start with = + or @.');
+  });
+  var info = describeChanges_(changes);
+  var logId = logWrite_(action, dateIso, note, info);          // log FIRST, so the old values are safe
+  var cache = {};
+  info.forEach(function (c) {
+    var s = cache[c.sheet] || (cache[c.sheet] = sheet_(c.sheet));
+    if (c.formula) s.getRange(c.row, c.col).setFormula(c.value);
+    else s.getRange(c.row, c.col).setValue(c.value);
+  });
+  SpreadsheetApp.flush();
+  return logId;
+}
+
+function logSheet_() {
+  var s = ss_().getSheetByName(SHEET.log);
+  if (!s) {
+    s = ss_().insertSheet(SHEET.log);
+    s.getRange(1, 1, 1, 7).setValues([['ID', 'TIME', 'ACTION', 'DATE', 'NOTE', 'CELLS', 'STATUS']]);
+    s.setFrozenRows(1);
+  }
+  return s;
+}
+
+function logWrite_(action, dateIso, note, info) {
+  var s = logSheet_();
+  var id = Utilities.formatDate(new Date(), 'UTC', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 9000 + 1000);
+  var compact = info.map(function (c) { return [c.sheet, c.row, c.col, c.oldValue, c.oldFormula, c.value, c.label]; });
+  var payload = JSON.stringify(compact);
+  // a cell holds at most 50,000 characters, so split big snapshots across extra rows
+  var CHUNK = 45000, chunks = [];
+  for (var i = 0; i < payload.length; i += CHUNK) chunks.push(payload.substr(i, CHUNK));
+  var first = [id, new Date().toISOString(), action, dateIso, note, chunks[0] || '[]', 'applied'];
+  s.appendRow(first);
+  for (var j = 1; j < chunks.length; j++) s.appendRow([id, '', action + ' (continued)', '', '', chunks[j], '']);
+  return id;
+}
+
+function readLog_(id) {
+  var s = logSheet_(), last = s.getLastRow();
+  if (last < 2) return null;
+  var vals = s.getRange(2, 1, last - 1, 7).getValues(), payload = '', head = null, headRow = null;
+  for (var i = 0; i < vals.length; i++) {
+    if (String(vals[i][0]) !== id) continue;
+    if (!head) { head = vals[i]; headRow = i + 2; }
+    payload += String(vals[i][5]);
+  }
+  if (!head) return null;
+  return { row: headRow, time: head[1], action: head[2], date: head[3], note: head[4], status: head[6], cells: JSON.parse(payload) };
+}
+
+function history_() {
+  var s = logSheet_(), last = s.getLastRow(), out = [];
+  if (last < 2) return { items: [] };
+  var vals = s.getRange(2, 1, last - 1, 7).getValues();
+  for (var i = vals.length - 1; i >= 0 && out.length < 40; i--) {
+    if (!vals[i][1]) continue;           // continuation rows have no time
+    var cells = 0;
+    try { var l = readLog_(String(vals[i][0])); cells = l ? l.cells.length : 0; } catch (x) { cells = 0; }
+    out.push({ id: String(vals[i][0]), time: vals[i][1], action: vals[i][2], date: vals[i][3], note: vals[i][4], status: vals[i][6], cells: cells });
+  }
+  return { items: out };
+}
+
+function undo_(req) {
+  var id = String(req.id || '');
+  if (!id) throw new Error('No change was named, so nothing was undone.');
+  var l = readLog_(id);
+  if (!l) throw new Error('That change was not found in the log.');
+  if (l.status === 'undone') throw new Error('That change was already undone.');
+  var cache = {}, moved = [];
+  l.cells.forEach(function (c) {          // [sheet,row,col,oldValue,oldFormula,newValue,label]
+    var s = cache[c[0]] || (cache[c[0]] = sheet_(c[0]));
+    var isF = typeof c[5] === 'string' && c[5].charAt(0) === '=';
+    var now = isF ? s.getRange(c[1], c[2]).getFormula() : s.getRange(c[1], c[2]).getValue();
+    if (String(now) !== String(c[5]) && !(now === '' && c[5] === '')) moved.push(c[6] + ' (now "' + String(now).slice(0, 40) + '")');
+  });
+  if (moved.length && !req.force) {
+    return { undone: false, blocked: true, message: moved.length + ' cell(s) were changed again after this entry, so it was not undone.', changedSince: moved.slice(0, 12) };
+  }
+  // log the undo as its own entry first (its old values = the current ones)
+  var back = l.cells.map(function (c) { return { sheet: c[0], row: c[1], col: c[2], value: c[4] ? c[4] : c[3], label: c[6] }; });
+  var info = describeChanges_(back);
+  logWrite_('undo of ' + id, l.date, 'restores the values from ' + l.time, info);
+  info.forEach(function (c, i) {
+    var cell = cache[c.sheet].getRange(c.row, c.col);
+    var orig = l.cells[i];
+    if (orig[4]) cell.setFormula(orig[4]);
+    else if (orig[3] === '') cell.clearContent();
+    else cell.setValue(orig[3]);
+  });
+  logSheet_().getRange(l.row, 7).setValue('undone');
+  SpreadsheetApp.flush();
+  return { undone: true, restored: l.cells.length };
+}
+
+
+/* ================================= new month ================================= */
+/* Run this on a COPY of last month's workbook (File > Make a copy). It sets the new month's dates,
+   clears last month's numbers (names, mappings, formulas and the design are kept) and sets each
+   BASELINE to the average of the month just ended. A backup copy of the workbook is made first. */
+
+var MONTH_NAMES = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'];
+function pad2_(n) { return (n < 10 ? '0' : '') + n; }
+function monthIsos_(y, m) {
+  var n = new Date(y, m, 0).getDate(), out = [];
+  for (var d = 1; d <= n; d++) out.push(y + '-' + pad2_(m) + '-' + pad2_(d));
+  return out;
+}
+function dateOf_(iso) { return Utilities.parseDate(iso, ss_().getSpreadsheetTimeZone(), 'yyyy-MM-dd'); }
+function round2_(n) { return Math.round(n * 100) / 100; }
+
+/** Every column that can hold a day: from the first date to the one before the AVERAGE column.
+    (A 30-day month leaves the 31st column's header empty, and it must still count as a slot.) */
+function slotCols_(s) {
+  var cols = dateCols_(s);
+  if (!cols.length) return cols;
+  var first = cols[0].col, lastDate = cols[cols.length - 1].col, head = s.getRange(1, 1, 1, Math.max(s.getLastColumn(), lastDate)).getValues()[0], end = lastDate, byCol = {};
+  for (var c = lastDate; c < head.length; c++) { if (/^\s*aver/i.test(String(head[c]))) { end = Math.max(lastDate, c); break; } }
+  cols.forEach(function (d) { byCol[d.col] = d.iso; });
+  var out = [];
+  for (var k = first; k <= end; k++) out.push({ iso: byCol[k] || '', col: k });
+  return out;
+}
+
+function newMonth_(req) {
+  var y = parseInt(req.year, 10), m = parseInt(req.month, 10);
+  if (!(y >= 2000 && y <= 2100) || !(m >= 1 && m <= 12)) throw new Error('A month and a year are required.');
+  var keepBase = req.baselines === 'keep';
+  var isos = monthIsos_(y, m), days = isos.length;
+  var tribes = tribeRows_(), hubs = hubRows_(), colonies = colonyRows_(), districts = districtRows_();
+  var targets = [
+    { key: 'tribes', sheet: SHEET.tribes, rows: tribes },
+    { key: 'hubs', sheet: SHEET.hubs, rows: hubs },
+    { key: 'colonies', sheet: SHEET.colonies, rows: colonies },
+    { key: 'districts', sheet: SHEET.districts, rows: districts }
+  ];
+  var t0 = dateCols_(sheet_(SHEET.tribes));
+  if (t0.length && t0[0].iso.slice(0, 7) === y + '-' + pad2_(m)) throw new Error('This workbook already starts on ' + MONTH_NAMES[m - 1] + ' ' + y + '. Make a copy of last month\'s workbook and run this on the copy.');
+  targets.forEach(function (t) {
+    t.s = sheet_(t.sheet); t.cols = slotCols_(t.s);
+    if (!t.cols.length) throw new Error('The ' + t.sheet + ' sheet has no dates in row 1, so the month cannot be set.');
+    if (t.cols.length < days) throw new Error('The ' + t.sheet + ' sheet has ' + t.cols.length + ' date columns but ' + MONTH_NAMES[m - 1] + ' ' + y + ' has ' + days + ' days. Copy its last date column once to the right, then try again.');
+    t.series = seriesFor_(t.sheet, t.rows, t.cols);
+  });
+  var oldFirst = targets[0].cols[0].iso, oldMonthName = MONTH_NAMES[parseInt(oldFirst.slice(5, 7), 10) - 1];
+  if (oldFirst.slice(0, 7) === y + '-' + pad2_(m)) throw new Error('This workbook already starts on ' + MONTH_NAMES[m - 1] + ' ' + y + '. Make a copy of last month\'s workbook and run this on the copy.');
+
+  // ---- what will be cleared (constants only; formulas are never touched)
+  var cleared = 0, filled = 0, perSheet = [];
+  targets.forEach(function (t) {
+    var c1 = t.cols[0].col, c2 = t.cols[t.cols.length - 1].col, maxRow = 0;
+    t.rows.forEach(function (r) { if (r.row > maxRow) maxRow = r.row; });
+    var rng = t.s.getRange(1, c1, maxRow, c2 - c1 + 1), vals = rng.getValues(), fs = rng.getFormulas(), n = 0;
+    t.clear = [];
+    t.rows.forEach(function (r) {
+      for (var c = 0; c <= c2 - c1; c++) {
+        var v = vals[r.row - 1][c], f = fs[r.row - 1][c];
+        if (f === '' && v !== '' && v !== null && v !== undefined) { n++; t.clear.push([r.row, c1 + c]); }
+      }
+    });
+    cleared += n; perSheet.push({ sheet: t.sheet, cells: n, rows: t.rows.length });
+  });
+
+  // ---- baselines from the month just ended (window = every day that has a number, or req.window)
+  var baseChanges = [], hubMap = [], colMap = [];
+  if (!keepBase) {
+    var w = req.window || {}, ws = String(w.start || ''), we = String(w.end || ''), wx = (w.exclude || []).map(String);
+    var tc = targets[0].cols;
+    var avg = function (vals) {
+      var n = 0, sum = 0;
+      for (var i = 0; i < vals.length; i++) {
+        var d = tc[i] ? tc[i].iso : '';
+        if (vals[i] === null || vals[i] === undefined) continue;
+        if ((ws && d < ws) || (we && d > we) || wx.indexOf(d) >= 0) continue;
+        sum += vals[i]; n++;
+      }
+      return n ? round2_(sum / n) : null;
+    };
+    var newT = {};
+    tribes.forEach(function (t, i) {
+      var a = avg(targets[0].series[i]);
+      if (a !== null) { newT[t.n] = a; if (a !== t.baseline) baseChanges.push({ sheet: SHEET.tribes, row: t.row, col: 3, old: t.baseline, value: a, label: 'Tribe ' + t.n + ' baseline' }); }
+    });
+    hubMap = mapRows_(SHEET.hubMap, 3).map(function (r) { return { hub: digits_(r.a), tribe: digits_(r.c) }; }).filter(function (x) { return x.hub && x.tribe; });
+    colMap = mapRows_(SHEET.colonyMap, 3).map(function (r) { return { hub: digits_(r.a), colony: r.b }; }).filter(function (x) { return x.hub && x.colony; });
+    var newH = {};
+    hubs.forEach(function (h) {
+      var mine = hubMap.filter(function (x) { return x.hub === h.n; }), tot = 0, any = false;
+      mine.forEach(function (x) { if (newT.hasOwnProperty(x.tribe)) { tot += newT[x.tribe]; any = true; } else { var ot = tribes.filter(function (t) { return t.n === x.tribe; })[0]; tot += ot && ot.baseline ? ot.baseline : 0; any = true; } });
+      if (!any) return;
+      tot = round2_(tot); newH[h.n] = tot;
+      if (tot !== h.baseline) baseChanges.push({ sheet: SHEET.hubs, row: h.row, col: 3, old: h.baseline, value: tot, label: h.label + ' baseline' });
+    });
+    colonies.forEach(function (c) {
+      var mine = colMap.filter(function (x) { return norm_(x.colony) === norm_(c.name); }), tot = 0, any = false;
+      mine.forEach(function (x) {
+        var hb = hubs.filter(function (h) { return h.n === x.hub; })[0];
+        tot += newH.hasOwnProperty(x.hub) ? newH[x.hub] : (hb && hb.baseline ? hb.baseline : 0); any = true;
+      });
+      if (!any) return;
+      tot = round2_(tot);
+      if (tot !== c.baseline) baseChanges.push({ sheet: SHEET.colonies, row: c.row, col: 3, old: c.baseline, value: tot, label: c.name + ' baseline' });
+    });
+  }
+  var headerNote = targets.map(function (t) {
+    var fm = t.s.getRange(1, t.cols[0].col, 1, 1).getFormulas()[0][0];
+    return { sheet: t.sheet, headers: fm ? 'follow a formula' : 'typed' };
+  });
+  var res = {
+    dryRun: !!req.dryRun, month: MONTH_NAMES[m - 1], year: y, days: days, firstDate: isos[0], lastDate: isos[days - 1],
+    oldMonth: oldMonthName, oldFirst: oldFirst, clearedCells: cleared, perSheet: perSheet, headers: headerNote,
+    baselineMode: keepBase ? 'keep' : 'average', baselineCount: baseChanges.length,
+    baselineSample: baseChanges.slice(0, 8).map(function (c) { return { label: c.label, old: c.old === null ? '' : c.old, value: c.value }; }),
+    workbook: ss_().getName()
+  };
+  if (req.dryRun) return res;
+
+  if (String(req.confirm || '') !== ss_().getName()) throw new Error('To go ahead, type the workbook name exactly: ' + ss_().getName());
+  // ---- safety copy first
+  if (req.backup !== false) {
+    try { var cp = ss_().copy(ss_().getName() + ' (backup before ' + MONTH_NAMES[m - 1] + ' ' + y + ')'); res.backupUrl = cp.getUrl(); res.backupName = cp.getName(); }
+    catch (e) { throw new Error('A backup copy could not be made, so nothing was changed. (' + (e && e.message ? e.message : e) + ') Make a copy yourself and try again with the backup box unticked.'); }
+  }
+  var logId = logWrite_('new month', isos[0], String(req.note || (MONTH_NAMES[m - 1] + ' ' + y)), []);
+  // ---- clear the numbers
+  targets.forEach(function (t) { t.clear.forEach(function (rc) { t.s.getRange(rc[0], rc[1]).clearContent(); }); });
+  // ---- new dates (headers that are formulas follow their source and are left alone)
+  targets.forEach(function (t) {
+    var fr = t.s.getRange(1, 1, 1, t.cols[t.cols.length - 1].col).getFormulas()[0];
+    t.cols.forEach(function (c, i) {
+      if (fr[c.col - 1]) return;
+      if (i < days) t.s.getRange(1, c.col).setValue(dateOf_(isos[i])); else t.s.getRange(1, c.col).clearContent();
+    });
+  });
+  // ---- baselines
+  baseChanges.forEach(function (c) { sheet_(c.sheet).getRange(c.row, c.col).setValue(c.value); });
+  var cs = sheet_(SHEET.colonies), h1 = cs.getRange(1, 3).getValue();
+  if (/^BASELINE/i.test(String(h1))) cs.getRange(1, 3).setValue('BASELINE(' + oldMonthName + ')');
+  SpreadsheetApp.flush();
+  // ---- check that every sheet now shows the new dates
+  res.warnings = [];
+  targets.forEach(function (t) {
+    var now = dateCols_(t.s).map(function (d) { return d.iso; });
+    for (var i = 0; i < days; i++) if (now[i] !== isos[i]) { res.warnings.push('The ' + t.sheet + ' sheet\'s date headers do not show ' + MONTH_NAMES[m - 1] + ' yet (they may follow a formula that needs a moment to update). Check row 1.'); break; }
+  });
+  var lg = readLog_(logId); if (lg) logSheet_().getRange(lg.row, 7).setValue('not undoable');
+  res.logId = logId; res.note = 'Done. Past data was cleared in this workbook; the backup copy keeps it.';
+  return res;
+}
+
+/* ============================== set up the tabs ============================== */
+/* Creates every tab the tool needs that is missing, with the exact headers it reads. Tabs that
+   already exist are never touched. Fill in the white cells; hover a header to read what goes in it. */
+
+var REQUIRED_TABS = [
+  { name: 'MAINDASH', what: 'Every tribe, its chief, baseline and each day\'s attendance (two rows per tribe: the second row holds the deputy).' },
+  { name: 'HUB DB', what: 'Every hub, its veteran, baseline and each day\'s attendance.' },
+  { name: 'COLONY DASH', what: 'Every colony, its regent, baseline and each day\'s attendance.' },
+  { name: 'District DASH', what: 'Every district (state or country), its mayor and each day\'s attendance.' },
+  { name: 'Hub_Mapping', what: 'Which hub each tribe belongs to, and the hub\'s veteran.' },
+  { name: 'Colony_Mapping', what: 'Which colony each hub belongs to, and the colony\'s regent.' },
+  { name: 'Hub_DB', what: 'The hub scoring list (hub and veteran names are kept here too).' },
+  { name: 'SETUP GUIDE', what: 'What to fill in on each tab.' }
+];
+
+function listClean_(v, max, up) {
+  var out = [], seen = {};
+  (Array.isArray(v) ? v : String(v || '').split(/\r?\n/)).forEach(function (x) {
+    var t = safe_(x); if (!t) return;
+    if (up) t = t.toUpperCase();
+    var k = t.toLowerCase(); if (seen[k]) return; seen[k] = 1; if (out.length < max) out.push(t);
+  });
+  return out;
+}
+function intIn_(v, lo, hi, dflt) { var n = parseInt(v, 10); if (!isFinite(n)) return dflt; return Math.max(lo, Math.min(hi, n)); }
+
+function look_(rng, fill, color) { try { rng.setFontWeight('bold'); if (fill) rng.setBackground(fill); if (color) rng.setFontColor(color); } catch (e) { /* styling is optional */ } }
+function note_(s, row, col, text) { try { s.getRange(row, col).setNote(text); } catch (e) { /* notes are optional */ } }
+
+function setupTabs_(req) {
+  var ss = ss_(), have = {};
+  var tabs = REQUIRED_TABS.map(function (t) { var present = !!ss.getSheetByName(t.name); have[t.name] = present; return { name: t.name, what: t.what, present: present }; });
+  var missing = tabs.filter(function (t) { return !t.present; }).map(function (t) { return t.name; });
+  var res = { dryRun: !!req.dryRun, tabs: tabs, missing: missing, count: missing.length };
+  if (req.dryRun || !missing.length) { if (!missing.length) res.note = 'Every tab the tool needs is already there. Nothing was created.'; return res; }
+
+  var y = parseInt(req.year, 10), m = parseInt(req.month, 10);
+  if (!(y >= 2000 && y <= 2100) || !(m >= 1 && m <= 12)) throw new Error('Choose the month the sheets are for, so the date headers can be written.');
+  var nT = intIn_(req.tribes, 0, 300, 0), nH = intIn_(req.hubs, 0, 120, 0);
+  var colonies = listClean_(req.colonies, 40, true), districts = listClean_(req.districts, 120, false);
+  var isos = monthIsos_(y, m), dates = isos.map(dateOf_);
+  var NAVY = '#14233b', WHITE = '#ffffff', created = [];
+
+  function newSheet(name) { var s = ss.insertSheet(name); created.push(name); try { s.setFrozenRows(1); } catch (e) {} return s; }
+  function dateHeader(s, firstCol, label3) {
+    var padded = dates.slice(); while (padded.length < 31) padded.push('');   // 31 day-columns so any month fits
+    var head = label3.concat(padded).concat(['AVERAGE']);
+    s.getRange(1, 1, 1, head.length).setValues([head]);
+    look_(s.getRange(1, 1, 1, head.length), NAVY, WHITE);
+    try { s.getRange(1, firstCol, 1, 31).setNumberFormat('d-mmm'); } catch (e) {}
+    return { first: firstCol, last: firstCol + 30, avg: firstCol + 31 };
+  }
+  var avgF = function (c, r) { return '=AVERAGE(' + colLetter_(c.first) + r + ':' + colLetter_(c.last) + r + ')'; };
+  var sumF = function (c, i, r1, r2) { var L = colLetter_(c.first + i); return '=SUM(' + L + r1 + ':' + L + r2 + ')'; };
+
+  if (!have['MAINDASH']) {
+    var s = newSheet('MAINDASH'), c = dateHeader(s, 4, ['TRIBES', 'TRIBE CHIEF & ASSOCIATE', 'BASELINE']);
+    note_(s, 1, 1, 'Write each tribe exactly like this: TRIBE 1, TRIBE 2, ... The tool finds tribes by this label.');
+    note_(s, 1, 2, 'Chief on the tribe row (CHIEF NAME). The row under it, with column A empty, holds the deputy (DPT. NAME). The Edit page can change names later.');
+    note_(s, 1, 3, 'Last month\'s average for the tribe. The tool can fill this for you (Edit > Baselines).');
+    note_(s, 1, c.first, 'Daily attendance goes in these columns. The tool writes them; do not type formulas here.');
+    for (var i = 1; i <= nT; i++) { var r = 1 + 2 * i; s.getRange(r, 1).setValue('TRIBE ' + i); s.getRange(r, c.avg).setFormula(avgF(c, r)); }
+    if (nT) {
+      var tr = 1 + 2 * nT + 2; s.getRange(tr, 1).setValue('TOTAL'); s.getRange(tr, 2).setValue('TRIBE TOTAL');
+      for (var d = 0; d < 31; d++) s.getRange(tr, c.first + d).setFormula(sumF(c, d, 2, tr - 1));
+      look_(s.getRange(tr, 1, 1, 2));
+    }
+  }
+  if (!have['HUB DB']) {
+    var s2 = newSheet('HUB DB'), c2 = dateHeader(s2, 4, ['HUBS', 'VETERANS', 'BASELINE']);
+    note_(s2, 1, 1, 'Write each hub exactly like this: Hub 1, Hub 2, ... with no blank rows between them.');
+    note_(s2, 1, 2, 'The hub\'s veteran: VETERAN NAME.');
+    note_(s2, 1, 3, 'Last month\'s hub average (the total of its tribes\' baselines). The tool can fill this for you.');
+    for (var h = 1; h <= nH; h++) { s2.getRange(1 + h, 1).setValue('Hub ' + h); s2.getRange(1 + h, c2.avg).setFormula(avgF(c2, 1 + h)); }
+    if (nH) {
+      var hr = nH + 3; s2.getRange(hr, 1).setValue('TOTAL');
+      for (var d2 = 0; d2 < 31; d2++) s2.getRange(hr, c2.first + d2).setFormula(sumF(c2, d2, 2, nH + 1));
+      look_(s2.getRange(hr, 1, 1, 1));
+    }
+  }
+  if (!have['COLONY DASH']) {
+    var s3 = newSheet('COLONY DASH'), c3 = dateHeader(s3, 4, ['COLONY', 'REGENTS & ASSOCIATE', 'BASELINE']);
+    note_(s3, 1, 1, 'One colony per row, no blank rows between them. The name must match Colony_Mapping.');
+    note_(s3, 1, 2, 'RGT. REGENT NAME & ASSOCIATE ASSOCIATE NAME (leave out "& ASSOCIATE ..." if there is none).');
+    note_(s3, 1, 3, 'Last month\'s colony average (the total of its hubs\' baselines). The tool can fill this for you.');
+    colonies.forEach(function (name, k) { s3.getRange(2 + k, 1).setValue(name); s3.getRange(2 + k, c3.avg).setFormula(avgF(c3, 2 + k)); });
+    if (colonies.length) {
+      var cr = colonies.length + 3; s3.getRange(cr, 2).setValue('COLONY TOTAL');
+      for (var d3 = 0; d3 < 31; d3++) s3.getRange(cr, c3.first + d3).setFormula(sumF(c3, d3, 2, colonies.length + 1));
+      look_(s3.getRange(cr, 2, 1, 1));
+    }
+  }
+  if (!have['District DASH']) {
+    var s4 = newSheet('District DASH'), c4 = dateHeader(s4, 3, ['DISTRICT', 'MAYORS']);
+    note_(s4, 1, 1, 'One district (state or country) per row, no blank rows between them. Include "Not in the database" if you want people who are not in the roster counted.');
+    note_(s4, 1, 2, 'MAYOR NAME.');
+    districts.forEach(function (name, k) { s4.getRange(2 + k, 1).setValue(name); s4.getRange(2 + k, c4.avg).setFormula(avgF(c4, 2 + k)); });
+    if (districts.length) {
+      var dr = districts.length + 3; s4.getRange(dr, 1).setValue('TOTAL');
+      for (var d4 = 0; d4 < 31; d4++) s4.getRange(dr, c4.first + d4).setFormula(sumF(c4, d4, 2, districts.length + 1));
+      look_(s4.getRange(dr, 1, 1, 1));
+    }
+  }
+  if (!have['Hub_Mapping']) {
+    var s5 = newSheet('Hub_Mapping');
+    s5.getRange(1, 1, 1, 3).setValues([['HUB', 'VETERAN', 'TRIBE']]); look_(s5.getRange(1, 1, 1, 3), NAVY, WHITE);
+    note_(s5, 1, 1, 'The hub the tribe belongs to, written Hub 1, Hub 2, ... Leave blank until you know it, or set it from the tool (Edit > Hub mapping).');
+    note_(s5, 1, 2, 'The hub\'s veteran (name only).'); note_(s5, 1, 3, 'The tribe, written Tribe 1, Tribe 2, ...');
+    for (var t = 1; t <= nT; t++) s5.getRange(1 + t, 3).setValue('Tribe ' + t);
+  }
+  if (!have['Colony_Mapping']) {
+    var s6 = newSheet('Colony_Mapping');
+    s6.getRange(1, 1, 1, 3).setValues([['HUB (Column A)', 'COLONY (Column B)', 'REGENT (Optional Info)']]); look_(s6.getRange(1, 1, 1, 3), NAVY, WHITE);
+    note_(s6, 1, 2, 'The colony the hub belongs to, spelled exactly like the name on COLONY DASH. Leave blank until you know it, or set it from the tool (Edit > Colony mapping).');
+    note_(s6, 1, 3, 'The regent (optional).');
+    for (var q = 1; q <= nH; q++) s6.getRange(1 + q, 1).setValue('Hub ' + q);
+  }
+  if (!have['Hub_DB']) {
+    var s7 = newSheet('Hub_DB');
+    s7.getRange(1, 1, 1, 3).setValues([['HUB', 'VETERAN', 'NOTES']]); look_(s7.getRange(1, 1, 1, 3), NAVY, WHITE);
+    note_(s7, 1, 1, 'Hub 1, Hub 2, ... The tool keeps the veteran name here in step with the other tabs.');
+    for (var u = 1; u <= nH; u++) s7.getRange(1 + u, 1).setValue('Hub ' + u);
+  }
+  if (!have['SETUP GUIDE']) {
+    var g = ss.insertSheet('SETUP GUIDE'); created.push('SETUP GUIDE');
+    var rows = [
+      ['LBD DAILY REPORT TOOL: WORKBOOK SET-UP', ''],
+      ['', ''],
+      ['Fill in the tabs in this order. Hover over a header cell (look for the small corner mark) for a note on what goes in it.', ''],
+      ['', ''],
+      ['TAB', 'WHAT TO FILL IN']
+    ];
+    REQUIRED_TABS.forEach(function (t) { if (t.name !== 'SETUP GUIDE') rows.push([t.name, t.what]); });
+    rows.push(['', ''], ['RULES', ''],
+      ['1', 'Keep labels exactly: TRIBE 1 (MAINDASH), Hub 1 (HUB DB and the mapping tabs), Tribe 1 (Hub_Mapping). The tool finds rows by these labels.'],
+      ['2', 'Do not leave blank rows inside the HUB DB, COLONY DASH or District DASH lists.'],
+      ['3', 'You do not need to type attendance numbers: the tool writes them from the Zoom file.'],
+      ['4', 'After filling the names, open the tool > Edit > Baselines and Master database. Baselines can be filled from last month\'s averages.'],
+      ['5', 'The daily report tabs your old workbook had are not needed: the tool builds every report itself.'],
+      ['6', 'COLONY DESIGN is optional. If you have a design sheet with that name, the tool can keep its names in step with the master database.'],
+      ['7', 'Next month: make a copy of this workbook and use the tool\'s Edit > New month. It sets the dates, clears the numbers and fills the baselines.']);
+    g.getRange(1, 1, rows.length, 2).setValues(rows);
+    look_(g.getRange(1, 1, 1, 2)); look_(g.getRange(5, 1, 1, 2), NAVY, WHITE); look_(g.getRange(6 + REQUIRED_TABS.length, 1, 1, 1));
+    try { g.setColumnWidth(1, 160); g.setColumnWidth(2, 720); } catch (e) {}
+  }
+  SpreadsheetApp.flush();
+  var lg = logWrite_('set up tabs', isos[0], 'created: ' + created.join(', '), []);
+  var l2 = readLog_(lg); if (l2) logSheet_().getRange(l2.row, 7).setValue('not undoable');
+  res.created = created; res.count = created.length; res.logId = lg;
+  res.note = 'Created ' + created.length + ' tab' + (created.length === 1 ? '' : 's') + '. Open SETUP GUIDE for what to fill in.';
+  return res;
+}
+
+
+/* ==========================================================================
+   PART 2: ADMIN ACCOUNTS (sign-up, approval, sign-in) + UPDATE REQUESTS
+   Admins can view, search, export and request edits; the central admin approves.
+   Passwords are never stored: only a salted hash goes into the sheet.
+   ========================================================================== */
 
 var REQ_TAB_ = 'Update requests';
 var REQ_HEAD_ = ['id', 'created', 'admin', 'status', 'title', 'reason', 'edits_json', 'changes_json', 'decided_by', 'decided_at', 'decision_note', 'log_id'];
@@ -3900,7 +5286,7 @@ var ACCT_TAB_ = 'Admin accounts';
 var ACCT_HEAD_ = ['id', 'created', 'name', 'email', 'phone', 'area', 'status', 'salt', 'password_hash', 'token_hash', 'token_expires', 'decided_by', 'decided_at', 'note', 'last_login'];
 var LOG_TAB_ = 'Admin sign-in log';
 var SESSION_DAYS_ = 30;
-var ADMIN_ACTIONS_ = { whoami: 1, ping: 1, getBook: 1, submitRequest: 1, listRequests: 1, cancelRequest: 1, signout: 1 };
+var ADMIN_ACTIONS_ = { whoami: 1, ping: 1, getBook: 1, submitRequest: 1, listRequests: 1, cancelRequest: 1, signout: 1, listCsvs: 1, getCsv: 1 };
 
 /* ---------- helpers ---------- */
 function sha_(s) { return Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, s, Utilities.Charset.UTF_8)); }
@@ -4112,9 +5498,93 @@ function removeAdmin_(body) {
   delete admins[String(body.name || '')]; p.setProperty('ADMIN_KEYS', JSON.stringify(admins));
   return { ok: true };
 }
+
+
+/* ==========================================================================
+   PART 3: ZOOM .CSV FILES IN GOOGLE DRIVE (save, list, read)
+   saveCsv: central admin only. listCsvs / getCsv: central admin and signed-in admins (read-only).
+   ========================================================================== */
+
+var CSV_FOLDER_NAME_ = 'LBD Zoom CSV uploads';
+var CSV_MAX_BYTES_ = 5 * 1024 * 1024;
+
+function handleCsv_(body, who) {
+  var a = body.action;
+  if (a !== 'saveCsv' && a !== 'listCsvs' && a !== 'getCsv') return null;
+  try {
+    if (a === 'saveCsv') {
+      if (!who || who.role !== 'central') return { ok: false, error: 'Only the central admin can save files.' };
+      return csvSave_(body);
+    }
+    if (a === 'listCsvs') return csvList_(body, who);
+    return csvGet_(body, who);
+  } catch (err) {
+    return { ok: false, error: String(err && err.message ? err.message : err) };
+  }
+}
+
+function csvFolderId_(raw) {
+  var t = String(raw || '').trim(), m = /[-\w]{25,}/.exec(t);
+  return m ? m[0] : '';
+}
+
+/** Finds the folder; creates it only when asked to (saving). Admins can never pick a folder. */
+function csvFolder_(body, who, create) {
+  var id = (who && who.role === 'central') ? csvFolderId_(body.folderId) : '';
+  if (!id) id = csvFolderId_(PropertiesService.getScriptProperties().getProperty('CSV_FOLDER_ID'));
+  if (id) return DriveApp.getFolderById(id);
+  var it = DriveApp.getFoldersByName(CSV_FOLDER_NAME_);
+  if (it.hasNext()) return it.next();
+  return create ? DriveApp.createFolder(CSV_FOLDER_NAME_) : null;
+}
+
+function csvSave_(body) {
+  var folder = csvFolder_(body, { role: 'central' }, true);
+  var name = String(body.date || 'undated') + ' - ' + String(body.fileName || 'zoom.csv').replace(/[\\\/:*?"<>|]/g, '_');
+  var old = folder.getFilesByName(name);
+  while (old.hasNext()) old.next().setTrashed(true);          // same day + same name = replace
+  var f = folder.createFile(name, String(body.csv || ''), MimeType.CSV);
+  return { ok: true, id: f.getId(), name: f.getName(), url: f.getUrl(), folder: folder.getName() };
+}
+
+function csvList_(body, who) {
+  var folder = csvFolder_(body, who, false);
+  if (!folder) return { ok: true, files: [] };
+  var out = [], it = folder.getFiles();
+  while (it.hasNext()) {
+    var f = it.next(), n = f.getName();
+    if (f.isTrashed() || /^connection-test/i.test(n) || /^[^ ]+ - connection-test/i.test(n)) continue;
+    out.push({ id: f.getId(), name: n, size: f.getSize(), updated: f.getLastUpdated().getTime() });
+  }
+  out.sort(function (a, b) { return a.name < b.name ? 1 : a.name > b.name ? -1 : b.updated - a.updated; });   // names start with the date, newest first
+  return { ok: true, files: out.slice(0, 120) };
+}
+
+function csvGet_(body, who) {
+  var id = String(body.id || '');
+  if (!/^[-\w]{10,}$/.test(id)) return { ok: false, error: 'No file was chosen.' };
+  var folder = csvFolder_(body, who, false);
+  if (!folder) return { ok: false, error: 'The Drive folder was not found.' };
+  var f = DriveApp.getFileById(id), inside = false, ps = f.getParents();
+  while (ps.hasNext()) { if (ps.next().getId() === folder.getId()) { inside = true; break; } }
+  if (!inside) return { ok: false, error: 'That file is not in the Zoom files folder.' };
+  if (f.getSize() > CSV_MAX_BYTES_) return { ok: false, error: 'That file is too large to open here.' };
+  return { ok: true, name: f.getName(), csv: f.getBlob().getDataAsString('UTF-8') };
+}
+
+/* ============================ one-time authorization ============================ */
+/* Functions ending in "_" are hidden from the editor's Run dropdown, so this one is
+   deliberately visible. In the editor choose "authorizeLBD" > Run once, then approve
+   Drive, Sheets and Mail access. Afterwards deploy a new version. */
+function authorizeLBD() {
+  DriveApp.getRootFolder();
+  SpreadsheetApp.getActiveSpreadsheet();
+  MailApp.getRemainingDailyQuota();
+  return 'Authorized. Now deploy a new version.';
+}
 `;
 function setupBlock() {
-  return '<div class="card"><h3>One-time setup in the engine script</h3><div class="banner info"><span class="ic">i</span><div>The workbook script does not have admin accounts yet. Add the file below once, then redeploy as a new version. It creates the sheets <b>Admin accounts</b>, <b>Admin sign-in log</b> and <b>Update requests</b> by itself.</div></div><ol style="margin:8px 0 8px 18px;padding:0"><li>Open the engine workbook\'s Apps Script and create a new file (for example <code class="k">Requests</code>).</li><li>Paste the script below into it.</li><li>In <code class="k">doPost</code>, add the lines shown at the top of the script, before your passcode check.</li><li>Deploy &gt; Manage deployments &gt; Edit &gt; New version &gt; Deploy.</li></ol><div class="row"><button class="btn small" id="btnCopyReq" type="button">Copy the script</button><span class="hint" id="copyReqMsg"></span></div><pre style="white-space:pre-wrap;word-break:break-word;font-size:12px;background:#f4f5fb;padding:12px;border-radius:12px;overflow-x:auto;max-height:260px;margin:10px 0 0">' + esc(REQ_SCRIPT) + '</pre></div>';
+  return '<div class="card"><h3>One-time setup in the engine script</h3><div class="banner info"><span class="ic">i</span><div>The workbook script does not have admin accounts yet. Replace it with the latest <b>Code.gs</b> (one file that holds everything), then redeploy as a new version. It creates the sheets <b>Admin accounts</b>, <b>Admin sign-in log</b> and <b>Update requests</b> by itself.</div></div><ol style="margin:8px 0 8px 18px;padding:0"><li>Open the engine workbook\'s Apps Script (Extensions &gt; Apps Script).</li><li>Select everything in <code class="k">Code.gs</code> and paste the script below over it. Delete any other script files (for example <code class="k">Requests</code>).</li><li>Deploy &gt; Manage deployments &gt; Edit &gt; New version &gt; Deploy, and approve the permissions.</li></ol><div class="row"><button class="btn small" id="btnCopyReq" type="button">Copy Code.gs</button><span class="hint" id="copyReqMsg"></span></div><pre style="white-space:pre-wrap;word-break:break-word;font-size:12px;background:#f4f5fb;padding:12px;border-radius:12px;overflow-x:auto;max-height:260px;margin:10px 0 0">' + esc(ENGINE_SCRIPT.slice(0, 2400)) + '\n… (the rest is copied with the button)</pre></div>';
 }
 function renderRequests() {
   const central = !isAdminRole(), body = $v('rqBody'); if (!body) return;
@@ -4141,7 +5611,7 @@ function wireReq(body) {
   body.querySelectorAll('[data-rj]').forEach(b => b.onclick = () => rejectRequest(b.dataset.rj));
   body.querySelectorAll('[data-cn]').forEach(b => b.onclick = () => cancelRequest(b.dataset.cn));
   const nr = body.querySelector('#btnNewReq'); if (nr) nr.onclick = () => go('edit');
-  const cp = body.querySelector('#btnCopyReq'); if (cp) cp.onclick = async () => { try { await navigator.clipboard.writeText(REQ_SCRIPT); $v('copyReqMsg').textContent = 'Copied ✓'; } catch (e) { $v('copyReqMsg').textContent = 'Press and hold the script to copy it.'; } };
+  const cp = body.querySelector('#btnCopyReq'); if (cp) cp.onclick = async () => { try { await navigator.clipboard.writeText(ENGINE_SCRIPT); $v('copyReqMsg').textContent = 'Copied ✓'; } catch (e) { $v('copyReqMsg').textContent = 'Press and hold the script to copy it.'; } };
 }
 
 /* ---------------------------------------------------------------- central admin: manage other admins */
