@@ -818,7 +818,7 @@ body.sb-collapsed .nav-grp .nav-sub { display: none !important; }
 #authPending h3 { font-size: 22px; } #authPending p { color: var(--mute); max-width: 36ch; margin: 8px auto 0; line-height: 1.5; }
 .so { display: none; margin-left: auto; width: 36px; height: 36px; border-radius: 11px; border: 1px solid #e6e9f3; background: #fff; color: #4a5368; cursor: pointer; align-items: center; justify-content: center; flex: none; box-shadow: var(--shadow-1); }
 .so svg { width: 18px; height: 18px; } .so:hover { background: #fde8e4; color: #c53a2f; border-color: #f6c9c3; }
-body.role-admin .dr-user .so { display: inline-flex; }
+.dr-user .so { display: inline-flex; }
 .sg { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .sg .tx { flex: 1; min-width: 200px; } .sg .tx b { display: block; } .sg .tx span { color: var(--mute); font-size: 13px; display: block; }
 .linkbox { display: flex; gap: 8px; flex-wrap: wrap; } .linkbox input { flex: 1; min-width: 220px; font-size: 12.5px; }
@@ -857,7 +857,7 @@ body.role-admin .dr-user .so { display: inline-flex; }
       <div class="as-foot">LIVING BY DESIGN NATION</div>
     </aside>
     <section class="auth-main">
-      <div class="auth-tabs" id="authTabs"><button type="button" data-at="signin" class="on">Sign in</button><button type="button" data-at="signup">Create account</button></div>
+      <div class="auth-tabs" id="authTabs"><button type="button" data-at="signin" class="on">Sign in</button><button type="button" data-at="signup">Create account</button><button type="button" data-at="central">Central admin</button></div>
       <div id="authUrlBox" hidden><label class="f" for="authUrl">Workbook link <span class="hint">(from the central admin)</span></label><input type="url" id="authUrl" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off"></div>
       <div class="hint" id="authHost" hidden style="margin-top:6px"></div>
       <form id="formSignin" novalidate>
@@ -875,9 +875,15 @@ body.role-admin .dr-user .so { display: inline-flex; }
         <div class="auth-grid"><div><label class="f" for="suPass">Password <span class="hint">(8+ characters)</span></label><div class="pw"><input type="password" id="suPass" autocomplete="new-password"><button type="button" class="eye">Show</button></div></div><div><label class="f" for="suPass2">Confirm password</label><div class="pw"><input type="password" id="suPass2" autocomplete="new-password"><button type="button" class="eye">Show</button></div></div></div>
         <button class="auth-btn" id="suGo" type="submit">Request access</button>
       </form>
+      <form id="formCentral" novalidate hidden>
+        <h3>Central admin login</h3><p class="sub">Full access: approve sign-ups and update requests, edit names and mappings, and change settings.</p>
+        <label class="f" for="cePass">Central admin passcode</label><div class="pw"><input type="password" id="cePass" autocomplete="current-password"><button type="button" class="eye">Show</button></div>
+        <label class="auth-check"><input type="checkbox" id="ceRemember"> Keep me signed in on this device</label>
+        <button class="auth-btn" id="ceGo" type="submit">Enter as central admin</button>
+      </form>
       <div id="authPending" hidden><div class="big">✓</div><h3>Request sent</h3><p><b id="pendName">Your</b>, the central admin has your request. You will be able to sign in as soon as it is approved.</p><button class="auth-btn" id="pendBack" type="button" style="max-width:280px">Back to sign in</button></div>
       <div class="auth-msg" id="authMsg" role="alert"></div>
-      <div class="auth-foot"><button type="button" id="authCentral">I am the central admin</button><button type="button" id="authPreviewClose" hidden>Close preview</button></div>
+      <div class="auth-foot"><button type="button" id="authCentral">Central admin login</button><button type="button" id="authPreviewClose" hidden>Close preview</button></div>
     </section>
   </div>
 </div>
@@ -2496,7 +2502,7 @@ function wire() {
   $('btnTestEngine').onclick = async () => { readSettingsForm(); saveSettings(); $('engTestMsg').innerHTML = '<span class="spin"></span> Testing…'; try { const r = await Engine.call('ping'); $('engTestMsg').textContent = '✓ Connected to "' + r.workbook + '"'; await refreshBook(); } catch (e) { $('engTestMsg').textContent = '✖ ' + e.message; } };
 }
 async function init() {
-  wire(); renderStatus(); startCompiler();
+  wire(); if (typeof seedDefaultProfile === 'function') seedDefaultProfile(); renderStatus(); startCompiler();
   if (!S.settings.practice && !(S.settings.profiles.length && activeProfile()) && !(typeof A !== 'undefined' && A.url)) { S.settings.practice = true; }
   if (S.settings.practice && !localStorage.getItem(SKEY)) go('settings');
   if (typeof needsAuth === 'function' && needsAuth()) { showAuth(A.url ? 'signup' : 'signin'); } else await refreshBook();
@@ -4299,10 +4305,16 @@ const EXEC_RE = /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec
     if (q) { const u = decJoin(q); if (EXEC_RE.test(u)) { A.url = u; localStorage.setItem(JOIN_KEY, u); } history.replaceState(null, '', location.pathname + location.hash); }
   } catch (e) {}
 })();
-const authUrl = () => A.url || ((typeof activeProfile === 'function' && activeProfile()) || {}).url || localStorage.getItem(JOIN_KEY) || '';
+/* Put the workbook's /exec link between the quotes and nobody has to paste it: the sign-in page opens ready to use on every phone and computer. */
+const DEFAULT_URL = '';
+const authUrl = () => A.url || ((typeof activeProfile === 'function' && activeProfile()) || {}).url || (EXEC_RE.test(DEFAULT_URL) ? DEFAULT_URL : '') || localStorage.getItem(JOIN_KEY) || '';
+function seedDefaultProfile() {
+  const s = S.settings;
+  if (EXEC_RE.test(DEFAULT_URL) && !s.profiles.length) { const prof = { id: 'w' + Date.now(), name: 'LBD workbook', url: DEFAULT_URL }; s.profiles.push(prof); s.active = prof.id; s.practice = false; }
+}
 function needsAuth() {
   const s = S.settings; if (A.url) { const p = activeProfile(); return !(p && p.url === A.url && getKey('eng:' + p.id)); }
-  if (s.practice) return false; const p = activeProfile(); return !!(p && p.url && !getKey('eng:' + p.id) && !A.skip);
+  if (A.skip) return false; if (s.practice) return true; const p = activeProfile(); return !!(p && p.url && !getKey('eng:' + p.id));
 }
 Engine.public = async function (url, action, body) {
   if (S.settings.practice && !A.url) return Mock.call(action, body || {});
@@ -4321,17 +4333,17 @@ function sessionEnded() { S.book = null; S.reqs = null; renderStatus(); showAuth
 function authMsg(t, cls) { const m = $v('authMsg'); m.textContent = t || ''; m.className = 'auth-msg' + (cls ? ' ' + cls : ''); }
 function setAuthTab(tab) {
   A.tab = tab; $v('authTabs').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.at === tab));
-  $v('formSignin').hidden = tab !== 'signin'; $v('formSignup').hidden = tab !== 'signup'; $v('authPending').hidden = true; authMsg('');
+  $v('formSignin').hidden = tab !== 'signin'; $v('formSignup').hidden = tab !== 'signup'; $v('formCentral').hidden = tab !== 'central'; $v('authPending').hidden = true; authMsg('');
 }
 function showAuth(tab, msg, cls) {
   const url = authUrl(); $v('authLogo').src = LOGO;
   $v('authScreen').classList.add('on'); setAuthTab(tab || 'signin'); if (msg) authMsg(msg, cls);
   const live = !(S.settings.practice && !A.url);
   $v('authUrlBox').hidden = !live || !!url; $v('authUrl').value = url;
-  $v('authHost').hidden = !(live && url); $v('authHost').textContent = url ? 'Workbook: …' + url.slice(-14) + '. Only continue if the central admin sent you this link.' : '';
-  $v('authPreviewClose').hidden = live; $v('authCentral').hidden = !live;
+  $v('authHost').hidden = !(live && url) && live; $v('authHost').textContent = !live ? 'Practice mode (made-up data). Demo admin login: admin@lbd.test / demo1234. Any passcode works for the central admin.' : (url ? 'Workbook: …' + url.slice(-14) + '. Only continue if the central admin sent you this link.' : '');
+  $v('authPreviewClose').hidden = true; $v('authCentral').hidden = false;
   document.getElementById('authTabs').style.display = '';
-  setTimeout(() => { try { (A.tab === 'signin' ? $v('siEmail') : $v('suName')).focus(); } catch (e) {} }, 100);
+  setTimeout(() => { try { (A.tab === 'signin' ? $v('siEmail') : A.tab === 'central' ? $v('cePass') : $v('suName')).focus(); } catch (e) {} }, 100);
 }
 function hideAuth() { $v('authScreen').classList.remove('on'); }
 function busy(btn, on, txt) { btn.disabled = on; if (txt) btn.dataset.t = btn.dataset.t || btn.textContent; btn.textContent = on ? (txt || 'Please wait…') : (btn.dataset.t || btn.textContent); }
@@ -4388,7 +4400,29 @@ $v('formSignup').addEventListener('submit', async e => {
   finally { busy(btn, false); }
 });
 $v('pendBack').addEventListener('click', () => setAuthTab('signin'));
-$v('authCentral').addEventListener('click', async () => { A.skip = true; A.url = ''; hideAuth(); go('dashboard'); await refreshBook(); });
+$v('authCentral').addEventListener('click', () => setAuthTab('central'));
+$v('formCentral').addEventListener('submit', async e => {
+  e.preventDefault(); authMsg(''); const btn = $v('ceGo'), pass = $v('cePass').value, practice = S.settings.practice && !A.url;
+  const enter = async who => { $v('cePass').value = ''; A.skip = true; A.url = ''; S.role = 'central'; S.who = who || ''; S.book = null; S.reqs = null; hideAuth(); renderStatus(); applyRole(); go('dashboard'); await refreshBook(); await refreshRequests(true); toast('Signed in as central admin'); };
+  if (practice) { S.settings.practiceRole = 'central'; Mock.session = null; saveSettings(); await enter(''); return; }
+  if (!pass) { authMsg('Enter the central admin passcode.'); return; }
+  let url; try { url = pickUrl(); } catch (x) { authMsg(x.message); return; }
+  busy(btn, true, 'Checking…');
+  const before = { active: S.settings.active, practice: S.settings.practice, remember: S.settings.remember, n: S.settings.profiles.length };
+  let prof = S.settings.profiles.find(p => p.url === url);
+  if (!prof) { prof = { id: 'w' + Date.now(), name: 'LBD workbook', url }; S.settings.profiles.push(prof); }
+  S.settings.active = prof.id; S.settings.practice = false; S.settings.remember = $v('ceRemember').checked; setKey('eng:' + prof.id, pass);
+  try {
+    let who = 'Central admin';
+    try { const r = await Engine.call('whoami'); if (r.role !== 'central') throw new Error('That is not the central admin passcode. Use the Sign in tab with your email and password.'); who = r.name || who; }
+    catch (x) { if (/unknown action/i.test(x.message || '')) await Engine.call('ping'); else throw x; }
+    saveSettings(); moveKeysStore(); try { localStorage.setItem(JOIN_KEY, url); } catch (x) {}
+    await enter(who);
+  } catch (x) {
+    forgetKey('eng:' + prof.id); S.settings.profiles.length = before.n; S.settings.active = before.active; S.settings.practice = before.practice; S.settings.remember = before.remember;
+    authMsg(x.message);
+  } finally { busy(btn, false); }
+});
 $v('authPreviewClose').addEventListener('click', () => { hideAuth(); if (S.settings.practice) { S.settings.practiceRole = 'central'; Mock.session = null; saveSettings(); loadWho().then(() => { renderStatus(); }); } });
 $v('btnPreviewAuth').addEventListener('click', () => { if (!S.settings.practice) { toast('Turn on practice mode to preview the page.'); return; } showAuth('signin'); });
 
