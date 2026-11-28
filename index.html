@@ -848,7 +848,7 @@ body.sb-collapsed .nav-grp .nav-sub { display: none !important; }
   <div class="lk-msg" id="lkMsg" role="status"></div>
 </div>
 <div id="privacyCover" aria-hidden="true"><div class="lk-tile"><img alt="" id="coverImg"></div><h1>LBD <em>DAILY REPORT</em></h1></div>
-<div id="authScreen" role="dialog" aria-modal="true" aria-label="Admin sign in">
+<div id="authScreen" class="on" role="dialog" aria-modal="true" aria-label="Admin sign in">
   <div class="auth-wrap">
     <aside class="auth-side">
       <div class="as-brand"><span class="dr-tile"><img alt="" id="authLogo"></span><div><b>LBD</b><span class="s">Daily Report Tool</span></div></div>
@@ -4316,10 +4316,7 @@ function seedDefaultProfile() {
   const s = S.settings;
   if (EXEC_RE.test(DEFAULT_URL) && !s.profiles.length) { const prof = { id: 'w' + Date.now(), name: 'LBD workbook', url: DEFAULT_URL }; s.profiles.push(prof); s.active = prof.id; s.practice = false; }
 }
-function needsAuth() {
-  const s = S.settings; if (A.url) { const p = activeProfile(); return !(p && p.url === A.url && getKey('eng:' + p.id)); }
-  if (A.skip) return false; if (s.practice) return true; const p = activeProfile(); return !!(p && p.url && !getKey('eng:' + p.id));
-}
+function needsAuth() { return !A.skip; }       // every page load opens on the sign-in page
 Engine.public = async function (url, action, body) {
   if (S.settings.practice && !A.url) return Mock.call(action, body || {});
   if (!url) throw new Error('Add the workbook link first.');
@@ -4344,7 +4341,7 @@ function showAuth(tab, msg, cls) {
   $v('authScreen').classList.add('on'); setAuthTab(tab || 'signin'); if (msg) authMsg(msg, cls);
   const live = !(S.settings.practice && !A.url);
   $v('authUrlBox').hidden = !live || !!url; $v('authUrl').value = url;
-  $v('authHost').hidden = !(live && url) && live; $v('authHost').textContent = !live ? : (url ? 'Workbook: …' + url.slice(-14) + '. Only continue if the central admin sent you this link.' : '');
+  $v('authHost').hidden = !(live && url) && live; $v('authHost').textContent = !live ? 'Practice mode (made-up data). Demo admin login: admin@lbd.test / demo1234. Any passcode works for the central admin.' : (url ? 'Workbook: …' + url.slice(-14) + '. Only continue if the central admin sent you this link.' : '');
   $v('authPreviewClose').hidden = true; $v('authCentral').hidden = false;
   document.getElementById('authTabs').style.display = '';
   setTimeout(() => { try { (A.tab === 'signin' ? $v('siEmail') : A.tab === 'central' ? $v('cePass') : $v('suName')).focus(); } catch (e) {} }, 100);
