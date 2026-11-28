@@ -966,6 +966,18 @@ body.sb-collapsed .nav-grp .nav-sub { display: none !important; }
     <div id="csvDriveStat" class="hint" style="margin-top:4px" aria-live="polite"></div>
   </div>
 
+  <div class="card only-central" id="zxCard">
+    <h3>Upload Zoom exports <small>(straight to your Drive folder)</small></h3>
+    <p class="hint" style="margin-top:0">Pick one or many Zoom .csv files. They are saved to the backend Drive folder as they are, without being counted. Admins can then open them in the Attendance checker with <b>Pull from Drive</b>.</p>
+    <div class="row">
+      <label class="f" for="zxDate" style="margin:0">For the day</label>
+      <input type="date" id="zxDate" style="max-width:170px">
+      <button class="btn" id="zxBtn" type="button">⬆ Upload Zoom exports</button>
+      <input type="file" id="zxInput" accept=".csv,text/csv" multiple style="display:none">
+    </div>
+    <div id="zxList" style="margin-top:10px" aria-live="polite"></div>
+  </div>
+
   <div id="checkArea"></div>
 
   <details class="fold" id="compilerFold" open style="display:none">
@@ -1137,17 +1149,13 @@ body.sb-collapsed .nav-grp .nav-sub { display: none !important; }
   </div>
     <div class="card only-central" id="csvCard">
     <h3>Save the Zoom .csv to Google Drive <small>(your backend copy of every upload)</small></h3>
-    <p class="hint" style="margin-top:0">After the tool counts a file, it can send the original .csv to Drive through your engine workbook link, named <code class="k">date - file name.csv</code>. Uploading the same day and file name again replaces the old copy.</p>
+    <p class="hint" style="margin-top:0">The Drive folder is kept by the engine script itself, so there is nothing to paste here. After the tool counts a file it can send the original .csv there, named <code class="k">date - file name.csv</code>. Sending the same day and file name again replaces the old copy.</p>
     <label class="f" for="setCsvMode">When to save it</label>
     <select id="setCsvMode"><option value="count">Right after counting (recommended)</option><option value="send">Only when I send to the workbook</option><option value="off">Never</option></select>
-    <label class="f" for="setCsvFolder" style="margin-top:10px">Drive folder <span class="hint">(filled in by "Create the folder for me". You can paste another folder link or ID instead)</span></label>
-    <input type="text" id="setCsvFolder" placeholder="https://drive.google.com/drive/folders/…" autocomplete="off" autocapitalize="off">
     <div class="row" style="margin-top:10px">
-      <button class="btn small" id="btnCsvMake" type="button">Create the folder for me</button>
       <button class="btn ghost small" id="btnCsvTest" type="button">Test the connection</button>
       <span id="csvTestMsg" class="hint"></span>
     </div>
-    <p class="hint" style="margin-top:10px">First time: in your engine Apps Script (<b>Code.gs</b>), pick <code class="k">authorizeLBD</code> in the function list and press Run, approve the permissions, then deploy a new version. That also creates the folder. After that, <b>Create the folder for me</b> only shows or fills in its link. Admins automatically read the same folder.</p>
   </div>
 
   <div class="card" id="lockCard">
@@ -1309,7 +1317,6 @@ const Mock = {
       case 'edit': return this.edit(body);
       case 'history': return { items: this.log.slice().reverse().slice(0, 40).map(l => ({ id: l.id, time: l.time, action: l.action, date: l.date, note: l.note, status: l.status, cells: l.cells.length })) };
       case 'undo': return this.undo(body);
-      case 'setupCsvFolder': { const made = !this.csvFolderMade; this.csvFolderMade = true; return { id: 'practice-folder-0000000000', name: 'LBD Zoom CSV uploads', url: '#', created: made }; }
       case 'listCsvs': return { files: this.practiceCsvs().map(f => ({ id: f.id, name: f.name, size: f.csv.length })) };
       case 'getCsv': { const f = this.practiceCsvs().find(x => x.id === body.id); if (!f) throw new Error('That file was not found.'); return { name: f.name, csv: f.csv }; }
       case 'saveCsv': (this.csvFiles = this.csvFiles || []).push({ id: 'practice-' + (this.csvFiles || []).length, name: String(body.date) + ' - ' + String(body.fileName), csv: String(body.csv || '') }); return { ok: true, id: 'practice-' + Date.now(), name: String(body.date) + ' - ' + String(body.fileName), url: '', folder: 'LBD Zoom CSV uploads (practice: nothing was uploaded)' };
@@ -2447,7 +2454,7 @@ function fillSettings() {
   $('setRemember').checked = !!s.remember; $('setPrepared').value = s.prepared || ''; $('setUnrec').checked = !!s.unrec; $('setMapsAdmin').checked = s.mapsAdmin !== false; $('setMapsSalary').checked = s.mapsSalary !== false; $('setPractice').checked = !!s.practice;
   $('setTz').value = String(s.tz); if ($('setTz').value !== String(s.tz)) $('setTz').value = '1';
   $('setWinStart').value = s.winStart || '03:30'; $('setWinEnd').value = s.winEnd || '06:15'; $('setQmin').value = s.qmin || 60; showWindowProblem();
-  $('setUserName').value = s.userName || ''; $('setCsvMode').value = s.csvMode || 'count'; $('setCsvFolder').value = s.csvFolder || '';
+  $('setUserName').value = s.userName || ''; $('setCsvMode').value = s.csvMode || 'count';
   renderProfiles();
 }
 function renderProfiles() {
@@ -2465,7 +2472,7 @@ function readSettingsForm() {
   document.querySelectorAll('[data-pu]').forEach(i => { const p = s.profiles.find(x => x.id === i.dataset.pu); if (p) p.url = i.value.trim(); });
   document.querySelectorAll('[data-pk]').forEach(i => { if (i.value) setKey('eng:' + i.dataset.pk, i.value); });
   const a = document.querySelector('[data-act]:checked'); if (a) s.active = a.dataset.act;
-  s.userName = $('setUserName').value.trim(); s.csvMode = $('setCsvMode').value; s.csvFolder = csvFolderId($('setCsvFolder').value);
+  s.userName = $('setUserName').value.trim(); s.csvMode = $('setCsvMode').value; delete s.csvFolder;
   if (!s.active && s.profiles.length) s.active = s.profiles[0].id;
 }
 function windowProblem() {
@@ -3169,7 +3176,7 @@ $('ckDrive').onclick = async () => {
   const b = $('ckDrive'), sel = $('ckDriveSel'), open = $('ckDriveOpen');
   b.disabled = true; $('ckStat').innerHTML = '<span class="spin"></span> Looking in Drive…';
   try {
-    const r = await Engine.call('listCsvs', { folderId: (S.role === 'admin' ? '' : (S.settings.csvFolder || '')) });
+    const r = await Engine.call('listCsvs', {});
     const files = r.files || [];
     if (!files.length) { sel.hidden = true; open.hidden = true; $('ckStat').innerHTML = '<span class="hint">No Zoom files have been saved to Drive yet.</span>'; return; }
     sel.innerHTML = files.map(f => '<option value="' + esc(f.id) + '">' + esc(f.name) + (f.size ? ' · ' + Math.max(1, Math.round(f.size / 1024)) + ' KB' : '') + '</option>').join('');
@@ -3181,7 +3188,7 @@ $('ckDrive').onclick = async () => {
 $('ckDriveOpen').onclick = async () => {
   const sel = $('ckDriveSel'), id = sel.value, name = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text.replace(/ · \d+ KB$/, '') : 'file';
   if (!id) return; const b = $('ckDriveOpen'); b.disabled = true; $('ckStat').innerHTML = '<span class="spin"></span> Opening ' + esc(name) + '…';
-  try { const r = await Engine.call('getCsv', { id, folderId: (S.role === 'admin' ? '' : (S.settings.csvFolder || '')) }); ckShow(r.name || name, String(r.csv || '')); }
+  try { const r = await Engine.call('getCsv', { id }); ckShow(r.name || name, String(r.csv || '')); }
   catch (e) { CK.people = {}; $('ckQ').disabled = true; $('ckStat').innerHTML = '<span style="color:var(--bad)">' + esc(ckDriveErr(e)) + '</span>'; renderChecker(); }
   finally { b.disabled = false; }
 };
@@ -3585,7 +3592,7 @@ async function csvAutoSave(force) {
   }
   S.csvArch = { key, status: 'saving' }; csvStatPaint();
   try {
-    const r = await Engine.call('saveCsv', { date: S.res.dayKey, fileName: S.csvName, csv: S.csvText, folderId: s.csvFolder || '', note: 'LBD tool · ' + S.csvName });
+    const r = await Engine.call('saveCsv', { date: S.res.dayKey, fileName: S.csvName, csv: S.csvText, note: 'LBD tool · ' + S.csvName });
     if (!S.csvArch || S.csvArch.key !== key) return;       // a different file was loaded meanwhile
     S.csvArch = { key, status: 'ok', name: r.name, url: r.url, folder: r.folder };
     toast('CSV saved to Google Drive ✓');
@@ -3596,20 +3603,38 @@ async function csvAutoSave(force) {
   csvStatPaint();
 }
 
-document.getElementById('btnCsvMake').addEventListener('click', async () => {
-  const m = document.getElementById('csvTestMsg'), btn = document.getElementById('btnCsvMake'); m.style.color = ''; m.innerHTML = '<span class="spin"></span> Setting up the folder…'; btn.disabled = true;
-  try {
-    const r = await Engine.call('setupCsvFolder', {});
-    S.settings.csvFolder = r.id || ''; document.getElementById('setCsvFolder').value = r.id || ''; saveSettings();
-    m.innerHTML = '✓ ' + (r.created ? 'Created' : 'Found') + ' the folder “' + esc(r.name || 'LBD Zoom CSV uploads') + '”' + (r.url && r.url !== '#' ? ' · <a href="' + esc(r.url) + '" target="_blank" rel="noopener">open in Drive</a>' : '') + '. Admins read the same one.';
-  } catch (e) { m.style.color = 'var(--bad,#b42318)'; m.textContent = '✖ ' + csvFriendly(e.message || 'Failed'); }
-  finally { btn.disabled = false; }
-});
+/* ---------- Upload Zoom exports: files go straight to the backend Drive folder ---------- */
+(function () {
+  const dateIn = document.getElementById('zxDate'), btn = document.getElementById('zxBtn'), inp = document.getElementById('zxInput'), list = document.getElementById('zxList');
+  if (!dateIn || !btn || !inp || !list) return;
+  const today = () => new Date().toLocaleDateString('en-CA');
+  dateIn.value = today();
+  btn.addEventListener('click', () => { if (!dateIn.value) dateIn.value = today(); inp.click(); });
+  inp.addEventListener('change', async () => {
+    const files = Array.from(inp.files || []); inp.value = ''; if (!files.length) return;
+    const day = dateIn.value || today(); btn.disabled = true;
+    list.innerHTML = files.map((f, i) => '<div class="hint" id="zx' + i + '" style="margin:3px 0"><span class="spin"></span> ' + esc(f.name) + '</div>').join('');
+    let ok = 0;
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i], row = document.getElementById('zx' + i);
+      try {
+        if (!/\.csv$/i.test(f.name)) throw new Error('only .csv files can be uploaded');
+        if (f.size > 8 * 1024 * 1024) throw new Error('the file is too large (over 8 MB)');
+        const text = await f.text();
+        if (!text.trim()) throw new Error('the file is empty');
+        const r = await Engine.call('saveCsv', { date: day, fileName: f.name, csv: text, note: 'LBD tool · uploaded Zoom export' });
+        ok++; row.innerHTML = '<span style="color:var(--ok,#18794e);font-weight:700">✓</span> ' + esc(r.name || f.name);
+      } catch (e) { row.innerHTML = '<span style="color:var(--bad,#b42318);font-weight:700">✖</span> ' + esc(f.name) + ' · ' + esc(csvFriendly(e.message || 'Failed')); }
+    }
+    list.insertAdjacentHTML('beforeend', '<div class="hint" style="margin-top:6px"><b>' + ok + ' of ' + files.length + ' uploaded.</b></div>');
+    btn.disabled = false;
+  });
+})();
 document.getElementById('btnCsvTest').addEventListener('click', async () => {
   const m = document.getElementById('csvTestMsg'); m.style.color = ''; m.innerHTML = '<span class="spin"></span> Testing…';
   try {
     readSettingsForm();
-    const r = await Engine.call('saveCsv', { date: 'connection-test', fileName: 'connection-test.csv', csv: 'ok\n', folderId: S.settings.csvFolder || '', note: 'LBD tool connection test' });
+    const r = await Engine.call('saveCsv', { date: 'connection-test', fileName: 'connection-test.csv', csv: 'ok\n', note: 'LBD tool connection test' });
     m.textContent = '✓ Works. Saved "' + (r.name || 'test file') + '"' + (r.folder ? ' in ' + r.folder : '') + '.';
   } catch (e) { m.style.color = 'var(--bad,#b42318)'; m.textContent = '✖ ' + csvFriendly(e.message || 'Failed'); }
 });
