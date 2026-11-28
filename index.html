@@ -233,7 +233,7 @@ table.be { border-collapse: separate; border-spacing: 0; font-size: 12.5px; widt
 .tsearch input { width: 210px; border: 0; border-radius: 8px 0 0 8px; padding: 7px 10px; font-size: 13px; min-width: 0; }
 .tsearch button { border: 0; background: var(--gold); color: #2b2100; border-radius: 0 8px 8px 0; padding: 0 11px; cursor: pointer; font-weight: 700; }
 @media (max-width: 1050px) { .tsearch { display: none; } }
-.ck-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; } @media (max-width: 700px) { .ck-grid { grid-template-columns: 1fr; } }
+.ck-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; } @media (max-width: 700px) { .ck-grid { grid-template-columns: 1fr; } .ck-grid input { font-size: 16px; } }
 .ck-grid input { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #cfd6e2; border-radius: 10px; font-size: 15px; }
 .ck-t { width: 100%; border-collapse: collapse; margin-top: 12px; } .ck-t th, .ck-t td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #e5e7eb; font-size: 13px; vertical-align: top; } .ck-t th { background: #f8fafc; color: #475569; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
 .ck-tot { background: #1e3a8a; color: #fff; padding: 4px 9px; border-radius: 6px; font-weight: 700; white-space: nowrap; } .ck-n { background: #f3f4f6; border: 1px solid #e5e7eb; padding: 3px 8px; border-radius: 20px; font-weight: 600; font-size: 12px; } .ck-n.hi { background: #fee2e2; color: #dc2626; border-color: #fca5a5; }
@@ -960,7 +960,7 @@ body.sb-collapsed .nav-grp .nav-sub { display: none !important; }
       <div class="big">📄</div>
       <b>Add the Zoom .csv file</b><br>
       <span class="hint" id="dropHint">Click here, or drop the file on this box</span>
-      <input type="file" id="csvInput" accept=".csv" style="display:none">
+      <input type="file" id="csvInput" accept=".csv,text/csv,text/comma-separated-values,application/csv,application/vnd.ms-excel,text/plain" style="display:none">
     </div>
     <div id="fileInfo" class="hint" style="margin-top:8px"></div>
     <div id="csvDriveStat" class="hint" style="margin-top:4px" aria-live="polite"></div>
@@ -971,7 +971,7 @@ body.sb-collapsed .nav-grp .nav-sub { display: none !important; }
     <p class="hint" style="margin-top:0">Pick one or many Zoom .csv files (5 or 6 at a time is fine). The tool reads each file, finds the day it belongs to from the Join time column, and saves it to the backend Drive folder under that day. Nothing is counted here. Admins can then open them in the Attendance checker with <b>Pull from Drive</b>.</p>
     <div class="row">
       <button class="btn" id="zxBtn" type="button">⬆ Upload Zoom exports</button>
-      <input type="file" id="zxInput" accept=".csv,text/csv" multiple style="display:none">
+      <input type="file" id="zxInput" accept=".csv,text/csv,text/comma-separated-values,application/csv,application/vnd.ms-excel,text/plain" multiple style="display:none">
     </div>
     <div id="zxList" style="margin-top:10px" aria-live="polite"></div>
   </div>
@@ -1041,8 +1041,8 @@ body.sb-collapsed .nav-grp .nav-sub { display: none !important; }
     <h3>Attendance checker <small>(look up one person in a Zoom attendance file)</small></h3>
     <p class="hint">Choose a Zoom participants file, then type a name. It shows every time that person joined and left, and the total minutes. This is a separate check: it does not change the Process page or the workbook, and the file stays in this browser.</p>
     <div class="ck-grid">
-      <div><label class="f">1. Zoom attendance file (.csv)</label><input type="file" id="ckFile" accept=".csv,text/csv"></div>
-      <div><label class="f">2. Search a name</label><input type="search" id="ckQ" placeholder="Type a name (for example Bukky)…" autocomplete="off" disabled></div>
+      <div><label class="f">1. Zoom attendance file (.csv)</label><input type="file" id="ckFile" accept=".csv,text/csv,text/comma-separated-values,application/csv,application/vnd.ms-excel,text/plain"></div>
+      <div><label class="f">2. Search a name</label><input type="search" id="ckQ" placeholder="Type a name (for example Bukky)…" autocomplete="off" autocapitalize="none" enterkeyhint="search"></div>
     </div>
     <div class="row" style="margin-top:12px">
       <button class="btn" id="ckDrive" type="button">☁ Pull from Drive</button>
@@ -3144,7 +3144,7 @@ function ckLoad(text) {
 function renderChecker() {
   const q = ($('ckQ').value || '').toLowerCase().trim(), body = $('ckBody'), names = Object.keys(CK.people);
   $('ckV1').classList.toggle('ghost', CK.view !== 1); $('ckV2').classList.toggle('ghost', CK.view !== 2);
-  if (!names.length) { body.innerHTML = ''; return; }
+  if (!names.length) { body.innerHTML = q ? '<div class="banner info" style="margin-top:12px"><span class="ic">i</span><div>Open a Zoom file first: tap <b>Choose file</b> above, or <b>Pull from Drive</b>. Then your search will show here.</div></div>' : ''; return; }
   if (!q) { body.innerHTML = '<div class="hint" style="margin-top:12px">Type a name above to see the joins.</div>'; return; }
   const hit = names.filter(n => n.toLowerCase().includes(q));
   if (!hit.length) { body.innerHTML = '<div class="banner info" style="margin-top:12px"><span class="ic">i</span><div>No participant matches that search.</div></div>'; return; }
@@ -3157,7 +3157,7 @@ function renderChecker() {
         return '<tr><td><b>' + esc(p.name) + '</b>' + (p.sessions.length > 2 ? ' <span class="ck-n hi">' + p.sessions.length + ' joins total</span>' : '') + '</td><td>' + esc(a.j) + '</td><td>' + esc(a.l) + '</td><td>' + (b ? esc(b.j) : none) + '</td><td>' + (b ? esc(b.l) : none) + '</td><td><span class="ck-tot">' + fmt(tot) + ' mins</span></td></tr>'; }).join('') + '</tbody></table>';
 }
 $('ckFile').onchange = e => { const f = e.target.files[0]; if (!f) return; const r = new FileReader();
-  r.onload = () => { try { ckLoad(r.result); $('ckQ').disabled = false; $('ckQ').value = ''; $('ckStat').innerHTML = '✓ ' + esc(f.name) + ': ' + fmt(CK.rows) + ' rows, ' + fmt(Object.keys(CK.people).length) + ' different people.'; renderChecker(); } catch (er) { CK.people = {}; $('ckQ').disabled = true; $('ckStat').innerHTML = '<span style="color:var(--bad)">' + esc(er.message) + '</span>'; renderChecker(); } };
+  r.onload = () => { try { ckLoad(r.result); $('ckQ').disabled = false; $('ckQ').value = ''; $('ckStat').innerHTML = '✓ ' + esc(f.name) + ': ' + fmt(CK.rows) + ' rows, ' + fmt(Object.keys(CK.people).length) + ' different people.'; renderChecker(); } catch (er) { CK.people = {}; $('ckStat').innerHTML = '<span style="color:var(--bad)">' + esc(er.message) + '</span>'; renderChecker(); } };
   r.onerror = () => { $('ckStat').textContent = 'The file could not be read.'; }; r.readAsText(f); };
 $('ckQ').oninput = renderChecker; $('ckV1').onclick = () => { CK.view = 1; renderChecker(); }; $('ckV2').onclick = () => { CK.view = 2; renderChecker(); };
 
@@ -3187,7 +3187,7 @@ $('ckDriveOpen').onclick = async () => {
   const sel = $('ckDriveSel'), id = sel.value, name = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text.replace(/ · \d+ KB$/, '') : 'file';
   if (!id) return; const b = $('ckDriveOpen'); b.disabled = true; $('ckStat').innerHTML = '<span class="spin"></span> Opening ' + esc(name) + '…';
   try { const r = await Engine.call('getCsv', { id }); ckShow(r.name || name, String(r.csv || '')); }
-  catch (e) { CK.people = {}; $('ckQ').disabled = true; $('ckStat').innerHTML = '<span style="color:var(--bad)">' + esc(ckDriveErr(e)) + '</span>'; renderChecker(); }
+  catch (e) { CK.people = {}; $('ckStat').innerHTML = '<span style="color:var(--bad)">' + esc(ckDriveErr(e)) + '</span>'; renderChecker(); }
   finally { b.disabled = false; }
 };
 
