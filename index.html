@@ -968,10 +968,8 @@ body.sb-collapsed .nav-grp .nav-sub { display: none !important; }
 
   <div class="card only-central" id="zxCard">
     <h3>Upload Zoom exports <small>(straight to your Drive folder)</small></h3>
-    <p class="hint" style="margin-top:0">Pick one or many Zoom .csv files. They are saved to the backend Drive folder as they are, without being counted. Admins can then open them in the Attendance checker with <b>Pull from Drive</b>.</p>
+    <p class="hint" style="margin-top:0">Pick one or many Zoom .csv files (5 or 6 at a time is fine). The tool reads each file, finds the day it belongs to from the Join time column, and saves it to the backend Drive folder under that day. Nothing is counted here. Admins can then open them in the Attendance checker with <b>Pull from Drive</b>.</p>
     <div class="row">
-      <label class="f" for="zxDate" style="margin:0">For the day</label>
-      <input type="date" id="zxDate" style="max-width:170px">
       <button class="btn" id="zxBtn" type="button">⬆ Upload Zoom exports</button>
       <input type="file" id="zxInput" accept=".csv,text/csv" multiple style="display:none">
     </div>
@@ -3604,29 +3602,55 @@ async function csvAutoSave(force) {
 }
 
 /* ---------- Upload Zoom exports: files go straight to the backend Drive folder ---------- */
+/* Finds the day a Zoom participants file belongs to, from its own Join time column (converted to Nigeria time).
+   If the file holds more than one date, the date with the most rows is the day (a late session that crosses midnight stays on its day). */
+function zxDetectDay(text) {
+  const rows = parseCsv(text); let hi = -1, col = -1;
+  for (let i = 0; i < Math.min(rows.length, 40) && hi < 0; i++) { const c = rows[i].findIndex(x => /^\s*join\s*time/i.test(String(x))); if (c >= 0) { hi = i; col = c; } }
+  if (hi < 0) return { error: 'no "Join time" column was found, so the day could not be read' };
+  const tz = parseFloat(S.settings && S.settings.tz); const shift = 1 - (isFinite(tz) ? tz : 1);       // file time zone -> Nigeria time (UTC+1)
+  const re = /^\s*(\d{1,4})[\/.\-](\d{1,2})[\/.\-](\d{1,4})[ T,]+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i, count = {}; let total = 0;
+  for (let i = hi + 1; i < rows.length; i++) {
+    const m = re.exec(String(rows[i][col] || '')); if (!m) continue;
+    let y, mo, d; const a = +m[1], b = +m[2], c = +m[3];
+    if (m[1].length === 4) { y = a; mo = b; d = c; } else { y = c < 100 ? 2000 + c : c; if (a > 12) { d = a; mo = b; } else { mo = a; d = b; } }
+    let h = +m[4]; if (m[7]) { const pm = /pm/i.test(m[7]); h = h % 12 + (pm ? 12 : 0); }
+    const t = new Date(Date.UTC(y, mo - 1, d, h, +m[5]) + shift * 3600000);
+    if (isNaN(t)) continue;
+    const key = t.getUTCFullYear() + '-' + String(t.getUTCMonth() + 1).padStart(2, '0') + '-' + String(t.getUTCDate()).padStart(2, '0');
+    count[key] = (count[key] || 0) + 1; total++;
+  }
+  if (!total) return { error: 'no dates were found in the Join time column' };
+  const days = Object.keys(count).sort((p, q) => count[q] - count[p] || (p < q ? -1 : 1));
+  return { day: days[0], rows: count[days[0]], total, others: days.slice(1).map(k => ({ day: k, rows: count[k] })) };
+}
 (function () {
-  const dateIn = document.getElementById('zxDate'), btn = document.getElementById('zxBtn'), inp = document.getElementById('zxInput'), list = document.getElementById('zxList');
-  if (!dateIn || !btn || !inp || !list) return;
-  const today = () => new Date().toLocaleDateString('en-CA');
-  dateIn.value = today();
-  btn.addEventListener('click', () => { if (!dateIn.value) dateIn.value = today(); inp.click(); });
+  const btn = document.getElementById('zxBtn'), inp = document.getElementById('zxInput'), list = document.getElementById('zxList');
+  if (!btn || !inp || !list) return;
+  btn.addEventListener('click', () => inp.click());
   inp.addEventListener('change', async () => {
     const files = Array.from(inp.files || []); inp.value = ''; if (!files.length) return;
-    const day = dateIn.value || today(); btn.disabled = true;
+    btn.disabled = true;
     list.innerHTML = files.map((f, i) => '<div class="hint" id="zx' + i + '" style="margin:3px 0"><span class="spin"></span> ' + esc(f.name) + '</div>').join('');
-    let ok = 0;
+    let ok = 0; const perDay = {};
     for (let i = 0; i < files.length; i++) {
       const f = files[i], row = document.getElementById('zx' + i);
       try {
         if (!/\.csv$/i.test(f.name)) throw new Error('only .csv files can be uploaded');
-        if (f.size > 8 * 1024 * 1024) throw new Error('the file is too large (over 8 MB)');
+        if (f.size > 5 * 1024 * 1024) throw new Error('the file is too large (over 5 MB)');
         const text = await f.text();
         if (!text.trim()) throw new Error('the file is empty');
-        const r = await Engine.call('saveCsv', { date: day, fileName: f.name, csv: text, note: 'LBD tool · uploaded Zoom export' });
-        ok++; row.innerHTML = '<span style="color:var(--ok,#18794e);font-weight:700">✓</span> ' + esc(r.name || f.name);
+        const det = zxDetectDay(text);
+        if (det.error) throw new Error(det.error);
+        row.innerHTML = '<span class="spin"></span> ' + esc(f.name) + ' · day ' + esc(det.day.slice(8)) + ', saving…';
+        const r = await Engine.call('saveCsv', { date: det.day, fileName: f.name, csv: text, note: 'LBD tool · uploaded Zoom export · day ' + det.day });
+        ok++; perDay[det.day] = (perDay[det.day] || 0) + 1;
+        const extra = det.others.length ? ' <span class="hint">(also ' + det.others.map(o => o.rows + ' row' + (o.rows === 1 ? '' : 's') + ' on the ' + o.day.slice(8)).join(', ') + '; the ' + det.day.slice(8) + ' has the most)</span>' : '';
+        row.innerHTML = '<span style="color:var(--ok,#18794e);font-weight:700">✓</span> ' + esc(r.name || f.name) + ' · <b>day ' + esc(det.day.slice(8)) + '</b> · ' + esc(longDate(det.day)) + ' · ' + det.rows + ' of ' + det.total + ' rows' + extra;
       } catch (e) { row.innerHTML = '<span style="color:var(--bad,#b42318);font-weight:700">✖</span> ' + esc(f.name) + ' · ' + esc(csvFriendly(e.message || 'Failed')); }
     }
-    list.insertAdjacentHTML('beforeend', '<div class="hint" style="margin-top:6px"><b>' + ok + ' of ' + files.length + ' uploaded.</b></div>');
+    const days = Object.keys(perDay).sort().map(d => d.slice(8) + (perDay[d] > 1 ? ' (×' + perDay[d] + ')' : '')).join(', ');
+    list.insertAdjacentHTML('beforeend', '<div class="hint" style="margin-top:6px"><b>' + ok + ' of ' + files.length + ' uploaded.</b>' + (days ? ' Days: ' + days + '.' : '') + '</div>');
     btn.disabled = false;
   });
 })();
