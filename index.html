@@ -989,16 +989,13 @@ body.sb-collapsed .nav-grp .nav-sub { display: none !important; }
 <!-- =========================== EXPORTS =========================== -->
 <section class="page" id="page-exports">
   <h2 class="pt">Exports</h2>
-  <p class="lead">Every report in one premium design. Pick the day, preview, then save as PDF. The file is named for you (for example <code class="k">OCTOBER 19 DAILY TRIBE REPORT</code>).</p>
+  <p class="lead">Every report in one premium design. Pick the day, preview, then save the report as PDF. The file is named for you (for example <code class="k">OCTOBER 19 DAILY TRIBE REPORT</code>).</p>
   <div class="card">
     <div class="row">
       <label class="f" style="margin:0">Report day</label>
       <select id="expDate"></select>
-      <label class="f" style="margin:0 0 0 8px" title="Used only by the Map's Copy · picked baseline report">Alternate baseline day</label>
-      <select id="expBase"></select>
       <button class="btn ghost small" id="expRefresh">↻ Refresh from workbook</button>
       <span class="grow"></span>
-      <button class="btn gold" id="expAll">Save all as one PDF</button>
     </div>
     <div id="expMsg"></div>
   </div>
@@ -1024,6 +1021,12 @@ body.sb-collapsed .nav-grp .nav-sub { display: none !important; }
     <div class="ck-grid">
       <div><label class="f">1. Zoom attendance file (.csv)</label><input type="file" id="ckFile" accept=".csv,text/csv"></div>
       <div><label class="f">2. Search a name</label><input type="search" id="ckQ" placeholder="Type a name (for example Bukky)…" autocomplete="off" disabled></div>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn" id="ckDrive" type="button">☁ Pull from Drive</button>
+      <select id="ckDriveSel" style="min-width:240px;max-width:100%" hidden></select>
+      <button class="btn gold" id="ckDriveOpen" type="button" hidden>Open this file</button>
+      <span class="hint">Uses the Zoom files already saved to Drive by the tool. No need to upload again.</span>
     </div>
     <div class="row" style="margin-top:10px"><span class="hint">View:</span>
       <button class="btn small" id="ckV1" type="button">Every join, in order</button>
@@ -1065,7 +1068,7 @@ body.sb-collapsed .nav-grp .nav-sub { display: none !important; }
     <div class="row" style="margin-top:10px"><button class="btn" id="btnTestDb">Test &amp; load roster</button><span id="dbTestMsg" class="hint"></span></div>
   </div>
 
-  <div class="card">
+  <div class="card only-central">
     <h3>Engine workbook <small>(the monthly Google Sheet the tool fills in and edits)</small></h3>
     <p class="hint" style="margin-top:0">One row per month. Pick which one is active. At the start of a new month, add the new workbook's link and switch to it.</p>
     <table class="dt" id="profTable"></table>
@@ -1169,7 +1172,7 @@ function getCsvFolder_(id) {
     <p class="hint" style="margin-bottom:0">This lock is kept on this device only and is not included in Export settings. It keeps other people out of the app on your phone. It does not encrypt the data stored in the browser, so keep the phone's own screen lock on as well.</p>
   </div>
 
-<div class="card" id="backupCard">
+<div class="card only-central" id="backupCard">
     <h3>Back up &amp; restore settings <small>(move your setup to another computer or phone)</small></h3>
     <p class="hint" style="margin-top:0">Export saves everything on this page into one file: workbook links, the member database link, counting rules, report options <b>and the passcodes</b>. Import reads that file back in and replaces the settings on this device.</p>
     <div class="row">
@@ -1312,9 +1315,15 @@ const Mock = {
       case 'edit': return this.edit(body);
       case 'history': return { items: this.log.slice().reverse().slice(0, 40).map(l => ({ id: l.id, time: l.time, action: l.action, date: l.date, note: l.note, status: l.status, cells: l.cells.length })) };
       case 'undo': return this.undo(body);
-      case 'saveCsv': (this.csvFiles = this.csvFiles || []).push({ date: body.date, name: body.fileName, bytes: String(body.csv || '').length }); return { ok: true, id: 'practice-' + Date.now(), name: String(body.date) + ' - ' + String(body.fileName), url: '', folder: 'LBD Zoom CSV uploads (practice: nothing was uploaded)' };
+      case 'listCsvs': return { files: this.practiceCsvs().map(f => ({ id: f.id, name: f.name, size: f.csv.length })) };
+      case 'getCsv': { const f = this.practiceCsvs().find(x => x.id === body.id); if (!f) throw new Error('That file was not found.'); return { name: f.name, csv: f.csv }; }
+      case 'saveCsv': (this.csvFiles = this.csvFiles || []).push({ id: 'practice-' + (this.csvFiles || []).length, name: String(body.date) + ' - ' + String(body.fileName), csv: String(body.csv || '') }); return { ok: true, id: 'practice-' + Date.now(), name: String(body.date) + ' - ' + String(body.fileName), url: '', folder: 'LBD Zoom CSV uploads (practice: nothing was uploaded)' };
       default: if (this.more) return this.more(action, body); throw new Error('Unknown action: ' + action);
     }
+  },
+  practiceCsvs() {
+    const sample = { id: 'practice-sample', name: '2026-10-19 - sample-zoom.csv', csv: 'Name (original name),User email,Join time,Leave time,Duration (minutes)\nBukky A.,,10/19/2026 03:40:00 AM,10/19/2026 04:20:00 AM,40\nBukky A.,,10/19/2026 04:30:00 AM,10/19/2026 05:15:00 AM,45\nTunde O.,,10/19/2026 03:35:00 AM,10/19/2026 05:00:00 AM,85\n' };
+    return (this.csvFiles || []).slice().reverse().concat([sample]);
   },
   rollup(tribeFull) {
     const b = this.book, t2h = {}, h2c = {};
@@ -1921,9 +1930,6 @@ const DOCS = [
   { id: 'district', name: 'Daily District Report', file: 'DAILY DISTRICT REPORT', color: '#3b5b92', orient: 'portrait', desc: 'States and countries, plus the "not in database" count.', build: reportDistrict },
   { id: 'colony', name: 'Daily Colony Report', file: 'DAILY COLONY REPORT', color: '#c9772b', orient: 'portrait', desc: 'The seven colonies ranked by cumulative average minus baseline.', build: reportColony },
   { id: 'league', name: 'Daily League Report', file: 'DAILY LEAGUE REPORT', color: '#1f3a5f', orient: 'portrait', desc: 'Colonies plus the five best and least hubs and tribes (districts by daily change).', build: reportLeague },
-  { id: 'nneoma', name: "Chief Nneoma's Report", file: 'CHIEF NNEOMAS REPORT', color: '#2b6f77', orient: 'landscape', desc: 'Admin teams ranked by cumulative average minus baseline.', build: reportNneoma },
-  { id: 'maps', name: "Map's Copy", file: 'MAPS COPY', color: '#3d4651', orient: 'landscape', desc: 'S/N, salary scale and overall performance against the workbook baselines.', build: reportMaps },
-  { id: 'maps2', name: "Map's Copy · picked baseline", file: 'MAPS COPY FROM BASELINE', color: '#8a5a1c', orient: 'landscape', desc: 'Same layout, but you pick the baseline day: baseline is that day\'s attendance and the average is counted from that day.', build: reportMaps2 }
 ];
 
 /* =====================================================================
@@ -2387,13 +2393,34 @@ function renderExports() {
   if (!days.length) { $('expMsg').innerHTML = '<div class="banner info"><span class="ic">i</span><div>No attendance has been entered in this workbook yet.</div></div>'; $('docGrid').innerHTML = ''; return; }
   if (!S.expDate || !days.includes(S.expDate)) S.expDate = days[days.length - 1];
   sel.innerHTML = days.slice().reverse().map(d => '<option value="' + d + '"' + (d === S.expDate ? ' selected' : '') + '>' + esc(longDate(d)) + '</option>').join('');
-  const bsel = $('expBase'); if (!S.settings.altBase || !days.includes(S.settings.altBase)) S.settings.altBase = days[0];
-  bsel.innerHTML = days.map(d => '<option value="' + d + '"' + (d === S.settings.altBase ? ' selected' : '') + '>' + esc(longDate(d)) + '</option>').join('');
   const D = computeDay(b, S.expDate);
   $('expMsg').innerHTML = D.hasYesterday ? '' : '<div class="banner warn"><span class="ic">!</span><div>Yesterday (' + esc(shortDate(D.prev)) + ') has no numbers in the workbook, so scores for this day compare against zero.</div></div>';
   $('docGrid').innerHTML = DOCS.map(d => '<div class="doc" style="--c:' + d.color + '"><h4>' + esc(d.name) + '</h4><p>' + esc(d.desc) + '</p><div class="row"><button class="btn small ghost" data-prev="' + d.id + '">Preview</button><button class="btn small" data-pdf="' + d.id + '">Save PDF</button></div></div>').join('');
+  $('docGrid').insertAdjacentHTML('beforeend', '<div class="doc" style="--c:#0f766e"><h4>Backend data</h4><p>The numbers behind the reports, straight from the workbook: every day recorded, the baseline, the average and cumulative minus baseline. Download as a spreadsheet (CSV).</p><div class="row">' + [['tribes', 'Tribes'], ['hubs', 'Hubs'], ['colonies', 'Colonies'], ['districts', 'Districts']].map(t => '<button class="btn small ghost" data-be="' + t[0] + '">⬇ ' + t[1] + '</button>').join('') + '</div></div>');
+  $('docGrid').querySelectorAll('[data-be]').forEach(x => x.onclick = () => exportBackendCsv(x.dataset.be));
   $('docGrid').querySelectorAll('[data-prev]').forEach(x => x.onclick = () => previewDoc(x.dataset.prev));
   $('docGrid').querySelectorAll('[data-pdf]').forEach(x => x.onclick = () => printDocs([x.dataset.pdf]));
+}
+function exportBackendCsv(tab) {
+  const b = S.book; if (!b) { toast('The workbook is not connected.'); return; }
+  const keep = S.beTab; S.beTab = tab; let M; try { M = beRows(b); } finally { S.beTab = keep; }
+  let last = -1; M.rows.forEach(r => r.vals.forEach((v, i) => { if (v !== null && v !== undefined && i > last) last = i; }));
+  if (last < 0) { toast('No numbers have been entered yet.'); return; }
+  const idxs = []; for (let i = 0; i <= last; i++) idxs.push(i);
+  const nm = (v, dp) => (v === null || v === undefined) ? '' : Number(v.toFixed(dp));
+  const head = [M.heads[0], M.heads[1]].concat(M.heads[2] ? [M.heads[2]] : []).concat(M.base ? ['Baseline'] : []).concat(idxs.map(i => b.dates[i])).concat(['Average']).concat(M.base ? ['Cumulative - baseline'] : []);
+  const csv = [head];
+  M.rows.forEach(r => {
+    const got = r.vals.slice(0, last + 1).filter(v => v !== null && v !== undefined);
+    const avg = got.length ? got.reduce((a, v) => a + v, 0) / got.length : null;
+    const gap = (avg !== null && r.baseline !== null && r.baseline !== undefined && M.base) ? avg - r.baseline : null;
+    csv.push([r.a, r.b].concat(M.heads[2] ? [r.c] : []).concat(M.base ? [nm(r.baseline, 2)] : []).concat(idxs.map(i => nm(r.vals[i], 2))).concat([nm(avg, 2)]).concat(M.base ? [nm(gap, 2)] : []));
+  });
+  const esc2 = v => { v = String(v === null || v === undefined ? '' : v); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  const text = '\ufeff' + csv.map(r => r.map(esc2).join(',')).join('\r\n') + '\r\n';
+  const url = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' })), a = document.createElement('a');
+  a.href = url; a.download = 'LBD_backend_' + tab + '_' + b.dates[last] + '.csv'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
+  toast('Backend data (' + tab + ') downloaded');
 }
 function previewDoc(id) {
   const doc = DOCS.find(d => d.id === id), D = computeDay(S.book, S.expDate);
@@ -2490,9 +2517,7 @@ function wire() {
   $('modalBack').addEventListener('click', e => { if (e.target === $('modalBack') && !$('askYes')) closeModal(); });
   $('pendClear').onclick = () => { S.pend = {}; renderEdit(); }; $('pendReview').onclick = reviewEdits;
   $('expDate').onchange = () => { S.expDate = $('expDate').value; renderExports(); };
-  $('expBase').onchange = () => { S.settings.altBase = $('expBase').value; saveSettings(); renderExports(); };
   $('expRefresh').onclick = async () => { await refreshBook(); toast('Refreshed from the workbook'); };
-  $('expAll').onclick = () => { if (!S.book) return; printDocs(DOCS.filter(d => d.id !== 'maps2').map(d => d.id)); };
   $('btnAddProf').onclick = () => { readSettingsForm(); S.settings.profiles.push({ id: 'w' + Date.now(), name: 'New workbook', url: '' }); if (!S.settings.active) S.settings.active = S.settings.profiles[0].id; renderProfiles(); };
   $('profTable').addEventListener('click', e => { const d = e.target.closest('[data-pd]'); if (!d) return; readSettingsForm(); S.settings.profiles = S.settings.profiles.filter(p => p.id !== d.dataset.pd); if (S.settings.active === d.dataset.pd) S.settings.active = (S.settings.profiles[0] || {}).id || ''; renderProfiles(); });
   ['setWinStart', 'setWinEnd', 'setQmin'].forEach(id => $(id).addEventListener('input', showWindowProblem));
@@ -3129,6 +3154,36 @@ $('ckFile').onchange = e => { const f = e.target.files[0]; if (!f) return; const
   r.onload = () => { try { ckLoad(r.result); $('ckQ').disabled = false; $('ckQ').value = ''; $('ckStat').innerHTML = '✓ ' + esc(f.name) + ': ' + fmt(CK.rows) + ' rows, ' + fmt(Object.keys(CK.people).length) + ' different people.'; renderChecker(); } catch (er) { CK.people = {}; $('ckQ').disabled = true; $('ckStat').innerHTML = '<span style="color:var(--bad)">' + esc(er.message) + '</span>'; renderChecker(); } };
   r.onerror = () => { $('ckStat').textContent = 'The file could not be read.'; }; r.readAsText(f); };
 $('ckQ').oninput = renderChecker; $('ckV1').onclick = () => { CK.view = 1; renderChecker(); }; $('ckV2').onclick = () => { CK.view = 2; renderChecker(); };
+
+/* Pull a saved Zoom .csv from the Drive folder (backend copy) into the checker */
+function ckShow(name, text) {
+  ckLoad(text); $('ckQ').disabled = false; $('ckQ').value = '';
+  $('ckStat').innerHTML = '✓ ' + esc(name) + ': ' + fmt(CK.rows) + ' rows, ' + fmt(Object.keys(CK.people).length) + ' different people.'; renderChecker();
+}
+function ckDriveErr(e) {
+  const m = String((e && e.message) || e || '');
+  return /unknown action/i.test(m) ? 'The workbook script does not have the Drive file steps yet. Add engine-csv.gs to the engine script (see README) and deploy a new version.' : m;
+}
+$('ckDrive').onclick = async () => {
+  const b = $('ckDrive'), sel = $('ckDriveSel'), open = $('ckDriveOpen');
+  b.disabled = true; $('ckStat').innerHTML = '<span class="spin"></span> Looking in Drive…';
+  try {
+    const r = await Engine.call('listCsvs', { folderId: (S.role === 'admin' ? '' : (S.settings.csvFolder || '')) });
+    const files = r.files || [];
+    if (!files.length) { sel.hidden = true; open.hidden = true; $('ckStat').innerHTML = '<span class="hint">No Zoom files have been saved to Drive yet.</span>'; return; }
+    sel.innerHTML = files.map(f => '<option value="' + esc(f.id) + '">' + esc(f.name) + (f.size ? ' · ' + Math.max(1, Math.round(f.size / 1024)) + ' KB' : '') + '</option>').join('');
+    sel.hidden = false; open.hidden = false; b.textContent = '↻ Refresh the list';
+    $('ckStat').innerHTML = '<span class="hint">' + files.length + ' file' + (files.length === 1 ? '' : 's') + ' in Drive, newest first. Pick one and press Open.</span>';
+  } catch (e) { $('ckStat').innerHTML = '<span style="color:var(--bad)">' + esc(ckDriveErr(e)) + '</span>'; }
+  finally { b.disabled = false; }
+};
+$('ckDriveOpen').onclick = async () => {
+  const sel = $('ckDriveSel'), id = sel.value, name = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text.replace(/ · \d+ KB$/, '') : 'file';
+  if (!id) return; const b = $('ckDriveOpen'); b.disabled = true; $('ckStat').innerHTML = '<span class="spin"></span> Opening ' + esc(name) + '…';
+  try { const r = await Engine.call('getCsv', { id, folderId: (S.role === 'admin' ? '' : (S.settings.csvFolder || '')) }); ckShow(r.name || name, String(r.csv || '')); }
+  catch (e) { CK.people = {}; $('ckQ').disabled = true; $('ckStat').innerHTML = '<span style="color:var(--bad)">' + esc(ckDriveErr(e)) + '</span>'; renderChecker(); }
+  finally { b.disabled = false; }
+};
 
 </script>
 
@@ -4105,7 +4160,7 @@ async function renderAdminsLegacy(body) {
   body.innerHTML = '<div class="card"><h3>Other admins <small>(each one gets their own passcode: they can view and request updates, never write)</small></h3>' +
     (list.length ? '<div style="overflow-x:auto"><table class="dt"><thead><tr><th>Name</th><th>Passcode</th><th></th></tr></thead><tbody>' + list.map(a => '<tr><td><b>' + esc(a.name) + '</b></td><td><code class="k" data-pk="' + esc(a.key) + '">••••-••••-••••</code> <button class="btn small ghost" data-show="' + esc(a.name) + '">Show</button></td><td style="white-space:nowrap"><button class="btn small ghost" data-share="' + esc(a.name) + '">Setup file</button> <button class="btn small ghost" data-del="' + esc(a.name) + '">Remove</button></td></tr>').join('') + '</tbody></table></div>' : '<div class="empty"><b>No other admins yet</b>Add one below, then send them their setup file.</div>') +
     '<div class="row" style="margin-top:14px"><input type="text" id="admName" placeholder="Name, e.g. Hub 3 admin" maxlength="40" style="flex:1;min-width:180px"><button class="btn accent" id="btnAddAdm">Add admin</button></div></div>' +
-    '<div class="card"><div class="banner info" style="margin:0"><span class="ic">i</span><div>Send the admin their <b>setup file</b> privately together with the app link. They open the app, go to Settings &gt; Back up &amp; restore &gt; Import settings, and choose the file. Remove an admin here to cut their access straight away.</div></div></div>';
+    '<div class="card"><div class="banner info" style="margin:0"><span class="ic">i</span><div>Send the admin their <b>setup file</b> privately together with the app link. Admins no longer see the Engine workbook or Back up &amp; restore boxes, so for new people use the <b>invite link</b> (Sign-ups tab) and let them create their own account. Remove an admin here to cut their access straight away.</div></div></div>';
   body.querySelectorAll('[data-show]').forEach(b => b.onclick = () => { const c = b.parentElement.querySelector('code'); const shown = c.dataset.on === '1'; c.textContent = shown ? '••••-••••-••••' : c.dataset.pk; c.dataset.on = shown ? '0' : '1'; b.textContent = shown ? 'Show' : 'Hide'; });
   body.querySelectorAll('[data-share]').forEach(b => b.onclick = () => { const a = list.find(x => x.name === b.dataset.share); if (a) { adminSetupFile(a); toast('Setup file downloaded. Send it privately.'); } });
   body.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
